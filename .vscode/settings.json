@@ -1,0 +1,11 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+    },
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "javascript": "FORCE_COLOR=1 node",
+        "javascriptreact": "FORCE_COLOR=1 node"
+    },
+}
