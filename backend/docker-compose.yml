@@ -1,3 +1,7 @@
+# 固定 Compose 项目名：与历史数据卷（knowledge-hub-backend_postgres_data）保持同名，
+# 避免目录改名/重构后 Compose 新建空卷，导致既有 Postgres 数据不可见。
+name: knowledge-hub-backend
+
 services:
   # PostgreSQL
   postgres:
