@@ -293,7 +293,7 @@ export class VectorIndexService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 创建 kh_chunk 索引（含 dense_vector）。
+   * 创建 kh_chunk 索引（dense_vector + IK）。
    * document_id 用 keyword：雪花 ID 以字符串传递，避免 JS long 精度问题。
    */
   private async createIndexIfNotExists() {
@@ -316,9 +316,15 @@ export class VectorIndexService implements OnModuleInit, OnModuleDestroy {
             document_id: { type: 'keyword' },
             document_title: {
               type: 'text',
+              analyzer: 'ik_max_word',
+              search_analyzer: 'ik_smart',
               fields: { keyword: { type: 'keyword' } },
             },
-            content: { type: 'text' },
+            content: {
+              type: 'text',
+              analyzer: 'ik_max_word',
+              search_analyzer: 'ik_smart',
+            },
             heading: { type: 'keyword' },
             chunk_index: { type: 'integer' },
             total_chunks: { type: 'integer' },

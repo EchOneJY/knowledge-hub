@@ -13,16 +13,17 @@ import {
 } from '../document/schemas/document-content.schema';
 import { ChunkingService } from './chunking.service';
 import { EmbeddingService } from './embedding.service';
-import { VectorIndexService } from './vector-index.service';
-import { SearchIndexService } from './search-index.service';
 import { GraphBuildService } from './graph-build.service';
+import { SearchIndexService } from './search-index.service';
+import { VectorIndexService } from './vector-index.service';
 import { PipelineDocument } from './types/pipeline.types';
 
 /**
  * 发布后知识管线编排器
  *
  * <p>RAG：分块 → Embedding → ES kh_chunk</p>
- * <p>Search：整篇快照 → ES kh_document</p>
+ * <p>Search：Mongo 全文 → ES kh_document</p>
+ * <p>KG：分块 → 抽实体关系 → Neo4j</p>
  *
  * <p>由 {@link DocumentPipelineConsumer} 在消费到 MQ 消息后调用；</p>
  * <p>本类负责「加载文档 → 调具体服务」，不直接碰 RabbitMQ。</p>
@@ -44,11 +45,18 @@ export class PipelineOrchestrator {
   ) {}
 
   /**
-   * 处理 RAG 重建消息。
+   * 处理 RAG 重建 / 删除消息。
    *
    * 重建流水线（单文档）：清旧块 → Chunking → Embedding → 写入 ES kh_chunk
    */
   async handleRagReindex(type: string, documentIds?: string[]) {
+    if (type === 'DELETE_BY_DOC_IDS' && documentIds?.length) {
+      for (const id of documentIds) {
+        await this.vectorIndexService.deleteByDocId(id);
+      }
+      return;
+    }
+
     if (type !== 'BY_DOC_IDS' || !documentIds?.length) {
       this.logger.warn(`忽略未支持的 RAG 消息：type=${type}`);
       return;
