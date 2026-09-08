@@ -11,10 +11,12 @@ services:
       ports:
         - "5432:5432"
       volumes:
-        - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/postgres:/var/lib/postgresql/data
+        - postgres_data:/var/lib/postgresql/data
         - ./init-scripts/postgresql:/docker-entrypoint-initdb.d
       healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U user -d knowledge_hub"]
+        # pg_isready 只确认服务可达，不能确认 POSTGRES_DB 已完成创建；
+        # 用 psql 查询目标库，避免 pgAdmin 在首次初始化阶段提前连接。
+        test: ["CMD-SHELL", "psql -U user -d knowledge_hub -Atc 'SELECT 1'"]
         interval: 5s
         timeout: 5s
         retries: 5
@@ -36,7 +38,8 @@ services:
     ports:
       - "8090:80"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   # MongoDB 主库
   mongodb:
@@ -203,6 +206,9 @@ services:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/neo4j/data:/data
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/neo4j/logs:/logs
     restart: unless-stopped
+
+volumes:
+  postgres_data:
 
 networks:
   default:

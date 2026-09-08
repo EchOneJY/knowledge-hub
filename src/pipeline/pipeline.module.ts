@@ -27,6 +27,11 @@ import { GraphBuildService } from './graph-build.service';
     GraphBuildService,
     PipelineOrchestrator,
   ],
-  exports: [PipelineOrchestrator, VectorIndexService],
+  exports: [
+    PipelineOrchestrator,
+    VectorIndexService,
+    SearchIndexService,
+    GraphBuildService,
+  ],
 })
 export class PipelineModule {}

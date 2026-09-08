@@ -31,14 +31,11 @@ export class DocumentPipelinePublisher {
 
   constructor(private readonly rabbit: RabbitMqService) {}
 
-  /**
-   * 发布成功后调用：并行投递 RAG / Search。
-   * @param content Mongo 正文，用于 Search 消息附带 content 前缀快照
-   */
-  async afterPublish(document: DocumentEntity, content?: string | null) {
+  /** 归档/删除后：通知 RAG / Search / KG 按文档 ID 清理 */
+  async afterPublish(document: DocumentEntity) {
     await Promise.all([
       this.triggerRagReindex(document.id),
-      this.triggerSearchIndex(document, content),
+      this.triggerSearchIndex(document.id),
       this.triggerKgBuild(document.id),
     ]);
   }
@@ -79,18 +76,14 @@ export class DocumentPipelinePublisher {
   }
 
   /**
-   * Search：消息内直接带文档快照，消费者无需再查库也能写索引。
-   * content 只截前 1000 字，控制消息体积。
+   * Search：只投 documentId。消费者从 Postgres + Mongo 拉全文再写 ES，
+   * 避免 MQ 塞正文、也不再截断前 1000 字。
    */
-  private async triggerSearchIndex(
-    document: DocumentEntity,
-    content?: string | null,
-  ) {
+  private async triggerSearchIndex(documentId: string) {
     const message: SearchIndexMessage = {
       taskId: randomUUID(),
       type: 'INDEX',
-      documentId: document.id,
-      document: this.buildSearchIndexData(document, content),
+      documentId,
     };
     const ok = await this.rabbit.publish(
       SEARCH_INDEX_EXCHANGE,
@@ -98,7 +91,7 @@ export class DocumentPipelinePublisher {
       message,
     );
     this.logger.log(
-      `ES 搜索索引${ok ? '已投递' : '投递失败'}：documentId=${document.id}, taskId=${message.taskId}`,
+      `ES 搜索索引${ok ? '已投递' : '投递失败'}：documentId=${documentId}, taskId=${message.taskId}`,
     );
   }
 

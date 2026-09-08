@@ -22,6 +22,7 @@ import {
   DocumentContentDocument,
 } from './schemas/document-content.schema';
 import { QueryReviewTasksDto } from './dto/review.dto';
+import { AuthUser } from 'src/auth/auth-user.interface';
 
 /**
  * 文档发布审核服务
@@ -53,7 +54,10 @@ export class DocumentReviewService {
    * 提交审核：Draft / Published → PendingReview
    * 若来自 Published，先清索引（审核期间不可检索）
    */
-  async submitForReview(documentId: string): Promise<DocumentEntity> {
+  async submitForReview(
+    documentId: string,
+    actor: AuthUser,
+  ): Promise<DocumentEntity> {
     const doc = await this.findDocumentOrThrow(documentId);
 
     if (!canSubmitReview(doc.status)) {
@@ -78,6 +82,9 @@ export class DocumentReviewService {
     await this.em.save(review);
 
     doc.status = DocumentStatus.PendingReview;
+    if (actor?.userId) {
+      doc.updateBy = actor.userId;
+    }
     const saved = await this.em.save(doc);
 
     if (beforeStatus === DocumentStatus.Published) {
@@ -111,8 +118,7 @@ export class DocumentReviewService {
     doc.publishTime = new Date();
     const saved = await this.em.save(doc);
 
-    const content = await this.loadContent(doc.contentId);
-    await this.safePublish(saved, content);
+    await this.safePublish(saved);
 
     this.logger.log(`审核通过：reviewId=${reviewId}, documentId=${doc.id}`);
     return saved;
@@ -224,9 +230,9 @@ export class DocumentReviewService {
     return contentDoc?.content ?? '';
   }
 
-  private async safePublish(doc: DocumentEntity, content: string) {
+  private async safePublish(doc: DocumentEntity) {
     try {
-      await this.pipelinePublisher.afterPublish(doc, content);
+      await this.pipelinePublisher.afterPublish(doc);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
