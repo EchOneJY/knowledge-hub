@@ -50,7 +50,7 @@ export class ExtractionService {
     const model =
       config.get<string>('MODEL_NAME') ||
       config.get<string>('LLM_MODEL') ||
-      'qwen3.7-flash';
+      'qwen3.8-flash';
     const timeout = Number(config.get('KG_LLM_TIMEOUT_MS', 60000));
     const timeoutMs = Number.isFinite(timeout) && timeout > 0 ? timeout : 60000;
 
@@ -63,10 +63,14 @@ export class ExtractionService {
       // DashScope 走 Chat Completions，不要切 OpenAI Responses API
       useResponsesApi: false,
       configuration: { baseURL: baseUrl },
+      // Qwen 思考模式与强制 tool_choice 不兼容，且会让结构化输出长时间推理
+      modelKwargs: { enable_thinking: false },
     });
 
     this.structuredLlm = llm.withStructuredOutput(kgExtractionResultSchema, {
       name: 'extract_knowledge_graph',
+      // LangChain 对非 GPT 模型默认 json_schema；Qwen 在该模式下容易超时
+      method: 'functionCalling',
     });
   }
 

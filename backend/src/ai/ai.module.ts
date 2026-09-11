@@ -5,6 +5,7 @@ import { AiController } from './ai.controller';
 import { HybridRetrievalService } from './hybrid-retrieval.service';
 import { RerankerService } from './reranker.service';
 import { EmbeddingService } from '../pipeline/embedding.service';
+import { ChatSessionService } from './chat-session.service';
 
 @Module({
   imports: [PipelineModule],
@@ -14,6 +15,7 @@ import { EmbeddingService } from '../pipeline/embedding.service';
     HybridRetrievalService,
     RerankerService,
     EmbeddingService,
+    ChatSessionService,
   ],
 })
 export class AiModule {}

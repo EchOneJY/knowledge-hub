@@ -71,6 +71,7 @@ export default function DocumentsPage() {
               新建文档
             </Button>
             <Upload
+              accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.json"
               showUploadList={false}
               beforeUpload={async (file) => {
                 const form = new FormData()

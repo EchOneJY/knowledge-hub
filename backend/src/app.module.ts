@@ -23,6 +23,8 @@ import { TeamEntity } from './team/entities/team.entity';
 import { AiModule } from './ai/ai.module';
 import { SearchModule } from './search/search.module';
 import { GraphModule } from './graph/graph.module';
+import { AiSessionEntity } from './ai/entities/ai-session.entity';
+import { AiMessageEntity } from './ai/entities/ai-message.entity';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { GraphModule } from './graph/graph.module';
           RolePermissionEntity,
           UserPermissionEntity,
           TeamEntity,
+          AiSessionEntity,
+          AiMessageEntity,
         ],
         synchronize: false,
       }),

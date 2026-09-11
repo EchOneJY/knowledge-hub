@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { RustfsService } from '../../storage/rustfs.service';
 import { parseDocx } from './parsers/docx.parser';
+import { parseJson } from './parsers/json.parser';
 import { parsePdf } from './parsers/pdf.parser';
 import { parsePlainText } from './parsers/plain-text.parser';
 import { parsePptx } from './parsers/pptx.parser';
@@ -15,6 +16,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   'pptx',
   'txt',
   'md',
+  'json',
 ]);
 
 export interface ParseInput {
@@ -50,7 +52,7 @@ export class FileParserService {
    *
    * - pdf：可选提取图片并上传到 rustfs（`pdf-images/` 前缀）
    * - xlsx：exceljs 优先，失败降级 officeparser（见 parseXlsxWithFallback）
-   * - pptx / docx / txt / md：直接调用对应 parser
+   * - pptx / docx / txt / md / json：直接调用对应 parser
    */
   async parse(file: ParseInput): Promise<string> {
     const extension = getExtension(file.originalname);
@@ -94,6 +96,9 @@ export class FileParserService {
       case 'txt':
       case 'md':
         result = parsePlainText(file.buffer);
+        break;
+      case 'json':
+        result = parseJson(file.buffer);
         break;
       default:
         throw new BadRequestException(`不支持的文件格式: ${extension}`);
