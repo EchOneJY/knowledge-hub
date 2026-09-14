@@ -6,6 +6,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  DocumentAccessScope,
+  ES_DOC_VISIBILITY_FIELDS,
+  esVisibilityFilter,
+} from 'src/document/document-access';
 
 /** ES 文档级全文检索索引名 */
 const ES_INDEX = 'kh_document';
@@ -44,6 +49,7 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
         `SearchIndex ES 已连接：${node}, status=${health.status}`,
       );
       await this.ensureEsIndex();
+      await this.ensureVisibilityMapping();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Elasticsearch 不可用，搜索索引将跳过写入：${message}`);
@@ -81,6 +87,37 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`搜索索引已写入 ES：documentId=${id}`);
   }
 
+  /** 已发布文档只改公开/团队时，补写可见性字段，不必整篇重索引 */
+  async updateVisibility(
+    documentId: string,
+    vis: { isPublic: boolean; teamId: string | null; authorId: string | null },
+  ) {
+    if (!this.es) {
+      this.logger.warn(
+        `跳过搜索可见性更新（ES 不可用）：documentId=${documentId}`,
+      );
+      return;
+    }
+    try {
+      await this.es.update({
+        index: ES_INDEX,
+        id: documentId,
+        doc: {
+          isPublic: vis.isPublic,
+          teamId: vis.teamId,
+          authorId: vis.authorId,
+        },
+        refresh: true,
+      });
+      this.logger.log(`搜索索引可见性已更新：documentId=${documentId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `搜索索引可见性更新失败：documentId=${documentId}, ${message}`,
+      );
+    }
+  }
+
   /** 下架 / 删除时从 ES 移除 */
   async deleteDocument(documentId: string) {
     if (!this.es) {
@@ -116,6 +153,7 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
     pageSize?: number;
     categoryId?: string;
     authorId?: string;
+    scope?: DocumentAccessScope;
   }) {
     const page = params.page ?? 1;
     const pageSize = Math.min(params.pageSize ?? 10, 50);
@@ -127,6 +165,10 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
     }
 
     const filters: Record<string, unknown>[] = [];
+    const vis = params.scope
+      ? esVisibilityFilter(params.scope, ES_DOC_VISIBILITY_FIELDS)
+      : null;
+    if (vis) filters.push(vis);
     if (params.categoryId) {
       filters.push({ term: { categoryId: params.categoryId } });
     }
@@ -194,6 +236,8 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
           categoryId: src.categoryId ?? null,
           tags: src.tags ?? null,
           authorId: src.authorId ?? null,
+          teamId: src.teamId ?? null,
+          isPublic: src.isPublic ?? null,
           status: src.status ?? null,
           publishTime: src.publishTime ?? null,
           score: hit._score ?? 0,
@@ -249,10 +293,30 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
           status: { type: 'integer' },
           categoryId: { type: 'keyword' },
           authorId: { type: 'keyword' },
+          teamId: { type: 'keyword' },
+          isPublic: { type: 'boolean' },
           publishTime: { type: 'date' },
         },
       },
     });
     this.logger.log(`已创建 ES 索引：${ES_INDEX}（ik_max_word / ik_smart）`);
+  }
+
+  /** 已有索引补可见性字段（旧 mapping 没有 isPublic） */
+  private async ensureVisibilityMapping() {
+    if (!this.es) return;
+    try {
+      await this.es.indices.putMapping({
+        index: ES_INDEX,
+        properties: {
+          isPublic: { type: 'boolean' },
+          teamId: { type: 'keyword' },
+          authorId: { type: 'keyword' },
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`kh_document 可见性 mapping 更新失败：${message}`);
+    }
   }
 }

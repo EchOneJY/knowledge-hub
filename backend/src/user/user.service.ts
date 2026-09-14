@@ -21,6 +21,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/profile.dto';
 import { UserVO } from './vo/user.vo';
+import { TeamService } from '../team/team.service';
 
 @Injectable()
 export class UserService {
@@ -34,6 +35,7 @@ export class UserService {
     @InjectRepository(DocumentEntity)
     private readonly documentRepo: Repository<DocumentEntity>,
     private readonly permissionService: PermissionService,
+    private readonly teamService: TeamService,
   ) {}
 
   async findByEmail(email: string): Promise<UserEntity | null> {
@@ -83,11 +85,13 @@ export class UserService {
     };
   }
 
-  toAuthUser(
+  async toAuthUser(
     user: UserEntity,
     roles: string[],
     permissions: string[],
-  ): AuthUser {
+  ): Promise<AuthUser> {
+    // 团队 ID 供文档可见性判断使用（成员 ∪ 负责人）
+    const teamIds = await this.teamService.listAccessibleTeamIds(user.id);
     return {
       userId: user.id,
       username: user.username,
@@ -96,6 +100,7 @@ export class UserService {
       avatar: user.avatar,
       roles,
       permissions,
+      teamIds,
     };
   }
 

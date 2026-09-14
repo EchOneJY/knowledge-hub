@@ -20,6 +20,7 @@ import { RolePermissionEntity } from './user/entities/role-permission.entity';
 import { UserPermissionEntity } from './user/entities/user-permission.entity';
 import { TeamModule } from './team/team.module';
 import { TeamEntity } from './team/entities/team.entity';
+import { TeamMemberEntity } from './team/entities/team-member.entity';
 import { AiModule } from './ai/ai.module';
 import { SearchModule } from './search/search.module';
 import { GraphModule } from './graph/graph.module';
@@ -66,6 +67,7 @@ import { AiMessageEntity } from './ai/entities/ai-message.entity';
           RolePermissionEntity,
           UserPermissionEntity,
           TeamEntity,
+          TeamMemberEntity,
           AiSessionEntity,
           AiMessageEntity,
         ],
