@@ -8,6 +8,9 @@ import { EmbeddingService } from '../pipeline/embedding.service';
 import { ChatSessionService } from './chat-session.service';
 import { AiStreamService } from './ai-stream.service';
 import { WebSearchService } from './web-search.service';
+import { ChatLongMemoryService } from './chat-long-memory.service';
+import { ChatShortMemoryService } from './chat-short-memory.service';
+import { ChatQueryRewriteService } from './chat-query-rewrite.service';
 
 @Module({
   imports: [PipelineModule],
@@ -20,6 +23,9 @@ import { WebSearchService } from './web-search.service';
     EmbeddingService,
     ChatSessionService,
     WebSearchService,
+    ChatLongMemoryService,
+    ChatShortMemoryService,
+    ChatQueryRewriteService,
   ],
 })
 export class AiModule {}
