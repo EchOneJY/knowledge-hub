@@ -46,7 +46,10 @@ export class VectorIndexService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const node = this.config.get('ELASTICSEARCH_NODE', 'http://localhost:9201');
+    const node = this.config.get<string>(
+      'ELASTICSEARCH_NODE',
+      'http://localhost:9201',
+    );
     this.es = new Client({ node });
     try {
       const health = await this.es.cluster.health();
@@ -305,13 +308,14 @@ export class VectorIndexService implements OnModuleInit, OnModuleDestroy {
       _source?: unknown;
     }>,
   ): ChunkHit[] {
+    const toStr = (v: unknown): string => (typeof v === 'string' ? v : '');
     return hits.map((hit) => {
       const src = (hit._source ?? {}) as Record<string, unknown>;
       return {
-        chunkId: String(src.chunk_id ?? hit._id),
-        documentId: String(src.document_id ?? ''),
-        documentTitle: String(src.document_title ?? ''),
-        content: String(src.content ?? ''),
+        chunkId: toStr(src.chunk_id ?? hit._id),
+        documentId: toStr(src.document_id),
+        documentTitle: toStr(src.document_title),
+        content: toStr(src.content),
         heading: (src.heading as string | null) ?? null,
         score: hit._score ?? 0,
       };

@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import neo4j, { Driver, Session } from 'neo4j-driver';
 import { ChunkingService } from './chunking.service';
 import { ExtractionService } from './extraction.service';
-import { PipelineDocument } from './types/pipeline.types';
+import { ExtractionResult, PipelineDocument } from './types/pipeline.types';
 import {
   neo4jAccessParams,
   neo4jDocumentAccessWhere,
@@ -53,9 +53,9 @@ export class GraphBuildService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn('Neo4j 已禁用（NEO4J_ENABLED=false）');
       return;
     }
-    const uri = this.config.get('NEO4J_URI', 'bolt://localhost:7687');
-    const user = this.config.get('NEO4J_USER', 'neo4j');
-    const password = this.config.get('NEO4J_PASSWORD', 'password');
+    const uri = this.config.get<string>('NEO4J_URI', 'bolt://localhost:7687');
+    const user = this.config.get<string>('NEO4J_USER', 'neo4j');
+    const password = this.config.get<string>('NEO4J_PASSWORD', 'password');
     this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
     try {
       await this.driver.verifyConnectivity();
@@ -164,7 +164,7 @@ export class GraphBuildService implements OnModuleInit, OnModuleDestroy {
         );
 
         // ④ 抽实体关系并落图；单块失败不阻断其余块（图已先清过）
-        let extracted;
+        let extracted: ExtractionResult;
         try {
           extracted = await this.extractionService.extract(
             chunk.content,
@@ -703,10 +703,12 @@ export class GraphBuildService implements OnModuleInit, OnModuleDestroy {
       };
 
       const splitTags = (raw: unknown) =>
-        String(raw ?? '')
-          .split(/[,，]/)
-          .map((t) => t.trim())
-          .filter(Boolean);
+        typeof raw === 'string' || typeof raw === 'number'
+          ? String(raw)
+              .split(/[,，]/)
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
 
       for (const record of docRecords) {
         const docId = String(record.get('docId'));

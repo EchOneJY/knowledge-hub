@@ -34,10 +34,9 @@ export class RerankerService {
       config.get<string>('OPENAI_API_KEY') ||
       undefined;
     this.model = config.get('RAG_RERANK_MODEL', 'qwen3.7-text-rerank');
-    const host = config.get(
-      'RERANK_BASE_URL',
-      'https://dashscope.aliyuncs.com',
-    );
+    const host =
+      config.get<string>('RERANK_BASE_URL', 'https://dashscope.aliyuncs.com') ??
+      '';
     this.endpoint = `${host.replace(/\/$/, '')}/api/v1/services/rerank/text-rerank/text-rerank`;
   }
 

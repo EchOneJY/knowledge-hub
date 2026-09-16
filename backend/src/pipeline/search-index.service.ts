@@ -41,7 +41,10 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const node = this.config.get('ELASTICSEARCH_NODE', 'http://localhost:9201');
+    const node = this.config.get<string>(
+      'ELASTICSEARCH_NODE',
+      'http://localhost:9201',
+    );
     this.es = new Client({ node });
     try {
       const health = await this.es.cluster.health();
@@ -229,9 +232,10 @@ export class SearchIndexService implements OnModuleInit, OnModuleDestroy {
       const items = (response.hits.hits ?? []).map((hit) => {
         const src = (hit._source ?? {}) as Record<string, unknown>;
         const highlight = hit.highlight ?? {};
+        const toStr = (v: unknown): string => (typeof v === 'string' ? v : '');
         return {
-          id: String(src.id ?? hit._id),
-          title: src.title ?? '',
+          id: toStr(src.id ?? hit._id),
+          title: toStr(src.title),
           summary: src.summary ?? null,
           categoryId: src.categoryId ?? null,
           tags: src.tags ?? null,
