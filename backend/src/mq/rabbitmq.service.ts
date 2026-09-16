@@ -117,6 +117,7 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
   }
 
   private errorMessage(error: unknown) {
+    if (typeof error === 'string') return error;
     if (error instanceof Error) return error.message;
     if (
       typeof error === 'object' &&
@@ -126,7 +127,7 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
     ) {
       return (error as { message: string }).message;
     }
-    return String(error ?? 'unknown');
+    return 'unknown';
   }
 
   async onModuleDestroy() {
@@ -196,17 +197,19 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
 
   private async bindConsumers(ch: ConfirmChannel) {
     for (const [queue, handler] of this.handlers.entries()) {
-      await ch.consume(queue, async (msg) => {
+      await ch.consume(queue, (msg) => {
         if (!msg) return;
-        try {
-          await handler(msg);
-          ch.ack(msg);
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          this.logger.error(`消费失败 queue=${queue}: ${message}`);
-          ch.nack(msg, false, false);
-        }
+        void (async () => {
+          try {
+            await handler(msg);
+            ch.ack(msg);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            this.logger.error(`消费失败 queue=${queue}: ${message}`);
+            ch.nack(msg, false, false);
+          }
+        })();
       });
       this.logger.log(`已注册消费者：${queue}`);
     }

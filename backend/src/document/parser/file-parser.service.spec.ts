@@ -3,7 +3,9 @@ import { FileParserService } from './file-parser.service';
 import type { RustfsService } from '../../storage/rustfs.service';
 
 describe('FileParserService', () => {
-  const service = new FileParserService({ isEnabled: () => false } as RustfsService);
+  const service = new FileParserService({
+    isEnabled: () => false,
+  } as RustfsService);
 
   it('支持 JSON 扩展名', () => {
     expect(service.isSupported('json')).toBe(true);
@@ -24,7 +26,10 @@ describe('FileParserService', () => {
 
   it('拒绝无效 JSON 并返回业务错误', async () => {
     await expect(
-      service.parse({ originalname: 'data.json', buffer: Buffer.from('{invalid') }),
+      service.parse({
+        originalname: 'data.json',
+        buffer: Buffer.from('{invalid'),
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 });

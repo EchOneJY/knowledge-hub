@@ -91,5 +91,8 @@ function cellToString(value: ExcelJS.CellValue): string {
     }
   }
 
+  // 兜底：null/undefined 与对象之外的非原始类型一律空串，避免出现 "[object Object]"
+  if (value == null || typeof value === 'object') return '';
+
   return String(value);
 }

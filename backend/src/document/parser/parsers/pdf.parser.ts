@@ -230,7 +230,11 @@ function normalizePdfTable(raw: unknown): string[][] {
     // 首元素仍是数组 → 视为「行 → 单元格」
     if (Array.isArray(raw[0])) {
       return (raw as unknown[][]).map((row) =>
-        row.map((cell) => String(cell ?? '').trim()),
+        row.map((cell) =>
+          typeof cell === 'string' || typeof cell === 'number'
+            ? String(cell).trim()
+            : '',
+        ),
       );
     }
     // 否则当作「多个表/多块」拼接

@@ -12,7 +12,9 @@ export function parseJson(buffer: Buffer): string {
 
   try {
     const value = JSON.parse(text) as unknown;
-    return cleanMarkdown(`\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``);
+    return cleanMarkdown(
+      `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new BadRequestException(`JSON 文件格式无效: ${message}`);
