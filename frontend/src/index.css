@@ -286,7 +286,11 @@ body,
 }
 
 .kh-bubble {
-  max-width: 780px;
+  /* 宽度随内容收缩：短消息不撑满整行，长消息仍受 max-width 限制 */
+  width: fit-content;
+  max-width: min(780px, 100%);
+  /* fit-content 下防止长 URL 等连续字符串把气泡撑到上限 */
+  overflow-wrap: anywhere;
   margin-bottom: 16px;
   padding: 12px 14px;
   border-radius: 10px;
