@@ -1,0 +1,6 @@
+node_modules
+dist
+dist.zip
+.turbo
+*.local
+.DS_Store

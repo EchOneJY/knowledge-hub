@@ -1,0 +1,227 @@
+name: knowledge-hub
+
+services:
+  backend:
+    image: knowledge-hub-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      es:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      MONGO_URI: mongodb://${MONGO_USER:-mongo_user}:${MONGO_PASSWORD:-mongo_pass123}@mongodb:27017/knowledge_hub?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-knowledge_hub}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      ELASTICSEARCH_NODE: http://es:9200
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_PUBLIC_URL: ${RUSTFS_PUBLIC_URL:-}
+      NEO4J_URI: bolt://neo4j:7687
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://101.43.44.95:5175}
+    ports:
+      # API 公网端口按用户要求使用 3001；前端同源代理仍走 /api
+      - '${API_PORT:-3001}:3000'
+    healthcheck:
+      # 根路径 / 受全局 JWT 守卫保护会返回 401，故用 TCP 探活代替 HTTP 探测
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 3000 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - kh-network
+
+  frontend:
+    image: knowledge-hub-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '${FRONTEND_PORT:-5175}:80'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - kh-network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+      POSTGRES_DB: knowledge_hub
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts/postgresql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-user} -d knowledge_hub']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - kh-network
+
+  mongodb:
+    image: mongo:7-jammy
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-mongo_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo_pass123}
+      MONGO_INITDB_DATABASE: knowledge_hub
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - mongo-data:/data/db
+      - ./init-scripts/mongodb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mongosh --eval "db.adminCommand(\"ping\")" -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - kh-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # healthcheck 在容器内读 REDIS_PASSWORD，须与 requirepass 同源注入
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?deploy/.env 缺少 REDIS_PASSWORD}
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD:?deploy/.env 缺少 REDIS_PASSWORD}']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a $${REDIS_PASSWORD} ping | grep PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - kh-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-knowledge_hub}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      # 管理界面仅 loopback，调试用
+      - '127.0.0.1:${RABBITMQ_MGMT_PORT:-15672}:15672'
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - kh-network
+
+  es:
+    image: knowledge-hub-es:latest
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - TZ=Asia/Shanghai
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - '127.0.0.1:${ES_PORT:-9201}:9200'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9200/_cluster/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - kh-network
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data/rustfs0
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CORS_ALLOWED_ORIGINS: '*'
+      RUSTFS_UNSAFE_BYPASS_DISK_CHECK: 'true'
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      # 挂在 /data（镜像内已存在、属主为 rustfs），而非 /data/rustfs0，
+      # 否则 Docker 会以 root 属主创建挂载点，rustfs 进程（uid 10001）无法写入
+      - rustfs-data:/data
+    ports:
+      - '127.0.0.1:${RUSTFS_API_PORT:-9000}:9000'
+      - '127.0.0.1:${RUSTFS_CONSOLE_PORT:-9001}:9001'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://127.0.0.1:9000/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - kh-network
+
+  neo4j:
+    image: neo4j:latest
+    restart: unless-stopped
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-12345678}
+      - NEO4J_PLUGINS=[]
+      - TZ=Asia/Shanghai
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    ports:
+      - '127.0.0.1:${NEO4J_HTTP_PORT:-7474}:7474'
+      - '127.0.0.1:${NEO4J_BOLT_PORT:-7687}:7687'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:7474 || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - kh-network
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+  es-data:
+  rustfs-data:
+  neo4j-data:
+  neo4j-logs:
+
+networks:
+  kh-network:
+    driver: bridge

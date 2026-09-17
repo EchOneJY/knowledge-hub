@@ -1,0 +1,17 @@
+.git
+.pnpm-store
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+backend/volumes
+backend/uploads
+deploy/.env
+deploy/init-scripts
+!deploy/nginx.conf
+test-files
+tmp*.md
+*.log
+.DS_Store
+.vscode

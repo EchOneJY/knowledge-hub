@@ -2,12 +2,30 @@
   "name": "knowledge-hub",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22.15.1",
+    "pnpm": ">=10"
+  },
   "scripts": {
+    "postinstall": "pnpm -r run stub --if-present",
     "dev:backend": "pnpm --filter knowledge-hub-backend start:dev",
-    "dev:frontend": "pnpm --filter knowledge-hub-frontend dev",
-    "build": "pnpm -r build",
+    "dev:react": "pnpm --filter knowledge-hub-react-app dev",
+    "dev:vue": "pnpm --filter knowledge-hub-vue-app dev",
+    "build": "turbo build --filter=./backend --filter=./frontend/react-app --filter=./frontend/vue-app",
+    "build:backend": "pnpm --filter knowledge-hub-backend build",
+    "build:react": "pnpm --filter knowledge-hub-react-app build",
+    "build:vue": "pnpm --filter knowledge-hub-vue-app build",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint"
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vben/tailwind-config": "workspace:*",
+    "@vben/tsconfig": "workspace:*",
+    "@vben/vite-config": "workspace:*",
+    "tsdown": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
   }
 }

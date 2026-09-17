@@ -1,0 +1,7 @@
+@import '@vben/tailwind-config/theme';
+
+/* 禁用根视图横向 overscroll，避免 macOS 触控板横滑误触发浏览器历史返回。 */
+html,
+body {
+  overscroll-behavior-x: none;
+}

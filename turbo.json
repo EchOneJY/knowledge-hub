@@ -1,0 +1,34 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "pnpm-lock.yaml",
+    "**/.env.*local",
+    "**/tsconfig*.json",
+    "frontend/internal/node-utils/*.json",
+    "frontend/internal/node-utils/src/**/*.ts",
+    "frontend/internal/vite-config/*.json",
+    "frontend/internal/vite-config/src/**/*.ts"
+  ],
+  "globalEnv": ["NODE_ENV"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "dependsOn": [],
+      "outputs": [],
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "outputs": []
+    },
+    "test": {
+      "outputs": []
+    },
+    "typecheck": {
+      "outputs": []
+    }
+  }
+}
