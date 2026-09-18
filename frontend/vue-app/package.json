@@ -33,7 +33,10 @@
     "element-plus": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
-    "vue-router": "catalog:"
+    "vue-router": "catalog:",
+    "dompurify": "catalog:",
+    "echarts": "catalog:",
+    "marked": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -41,6 +44,7 @@
     "typescript": "catalog:",
     "unplugin-element-plus": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:"
+    "vue-tsc": "catalog:",
+    "vite": "catalog:"
   }
 }

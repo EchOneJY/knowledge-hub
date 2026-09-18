@@ -149,5 +149,5 @@ export const teamApi = {
   addMembers: (id: string, userIds: string[]) =>
     requestClient.post<unknown>(`/teams/${id}/members`, userIds),
   removeMembers: (id: string, userIds: string[]) =>
-    requestClient.delete<unknown>(`/teams/${id}/members`, userIds),
+    requestClient.delete<unknown>(`/teams/${id}/members`, { data: userIds }),
 };

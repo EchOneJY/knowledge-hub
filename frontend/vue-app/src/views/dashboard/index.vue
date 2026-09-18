@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { IconifyIcon } from '@vben/icons';
 import { useAccessStore } from '@vben/stores';
 
 import {
@@ -9,8 +10,8 @@ import {
   ElCol,
   ElMessage,
   ElRow,
-  ElStatistic,
   ElTable,
+  ElTableColumn,
 } from 'element-plus';
 
 import { documentApi, userApi } from '#/api';
@@ -18,6 +19,8 @@ import type { DocumentItem, UserStats } from '#/api';
 import { hasAccessByCodes } from '#/utils/access';
 import { DocStatusTag } from '#/components/doc-status-tag';
 import { FileTypeIcon } from '#/components/file-type-icon';
+import { SectionTitle } from '#/components/section-title';
+import { StatCard } from '#/components/stat-card';
 import { formatTime } from '#/utils';
 
 /**
@@ -69,7 +72,6 @@ const quickEntries = [
     title: '知识图谱',
   },
 ].filter((entry) => hasAccessByCodes(accessStore.accessCodes, [entry.authority]));
-
 onMounted(async () => {
   userApi
     .stats()
@@ -92,24 +94,16 @@ onMounted(async () => {
   <div class="space-y-4 p-4">
     <ElRow :gutter="16">
       <ElCol :span="6">
-        <ElCard shadow="never">
-          <ElStatistic title="我的文档" :value="stats?.documentCount ?? 0" />
-        </ElCard>
+        <StatCard icon="lucide:file-text" label="我的文档" :value="stats?.documentCount ?? 0" />
       </ElCol>
       <ElCol :span="6">
-        <ElCard shadow="never">
-          <ElStatistic title="浏览合计" :value="stats?.viewCount ?? 0" />
-        </ElCard>
+        <StatCard icon="lucide:eye" label="浏览合计" tone="purple" :value="stats?.viewCount ?? 0" />
       </ElCol>
       <ElCol :span="6">
-        <ElCard shadow="never">
-          <ElStatistic title="点赞合计" :value="stats?.likeCount ?? 0" />
-        </ElCard>
+        <StatCard icon="lucide:thumbs-up" label="点赞合计" tone="green" :value="stats?.likeCount ?? 0" />
       </ElCol>
       <ElCol :span="6">
-        <ElCard shadow="never">
-          <ElStatistic title="评论合计" :value="stats?.commentCount ?? 0" />
-        </ElCard>
+        <StatCard icon="lucide:message-circle" label="评论合计" tone="orange" :value="stats?.commentCount ?? 0" />
       </ElCol>
     </ElRow>
 
@@ -117,11 +111,20 @@ onMounted(async () => {
       <ElCol v-for="entry in quickEntries" :key="entry.path" :span="6">
         <ElCard
           shadow="hover"
-          class="cursor-pointer"
+          class="group cursor-pointer transition-shadow hover:shadow-md"
           @click="router.push(entry.path)"
         >
-          <div class="flex items-center gap-2">
-            <span class="text-xl text-primary">{{ entry.title }}</span>
+          <div class="flex items-center gap-3">
+            <span class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-lg">
+              <IconifyIcon :icon="entry.icon" class="text-lg" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold">{{ entry.title }}</div>
+            </div>
+            <IconifyIcon
+              class="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5"
+              icon="lucide:chevron-right"
+            />
           </div>
         </ElCard>
       </ElCol>
@@ -129,15 +132,16 @@ onMounted(async () => {
 
     <ElCard shadow="never" v-if="canListDocuments">
       <template #header>
-        <h3 class="m-0 text-base font-semibold">最近可见文档</h3>
+        <SectionTitle icon="lucide:history" title="最近可见文档" />
       </template>
       <ElTable
         v-loading="loading"
+        border
         row-key="id"
         :data="docs"
         size="default"
       >
-        <ElTable.Column label="标题" min-width="240">
+        <ElTableColumn label="标题" min-width="240">
           <template #default="{ row }">
             <a
               class="flex cursor-pointer items-center gap-2 text-primary hover:underline"
@@ -147,22 +151,22 @@ onMounted(async () => {
               {{ row.title }}
             </a>
           </template>
-        </ElTable.Column>
-        <ElTable.Column label="状态" width="100">
+        </ElTableColumn>
+        <ElTableColumn label="状态" width="100">
           <template #default="{ row }">
-            <DocStatusTag :status="row.status" />
+            <DocStatusTag :status="(row as DocumentItem).status" />
           </template>
-        </ElTable.Column>
-        <ElTable.Column label="可见性" width="110">
+        </ElTableColumn>
+        <ElTableColumn label="可见性" width="110">
           <template #default="{ row }">
-            <ElTag :type="visibilityMeta(row).type">
-              {{ visibilityMeta(row).label }}
+            <ElTag :type="visibilityMeta(row as DocumentItem).type">
+              {{ visibilityMeta(row as DocumentItem).label }}
             </ElTag>
           </template>
-        </ElTable.Column>
-        <ElTable.Column label="更新时间" width="180">
+        </ElTableColumn>
+        <ElTableColumn label="更新时间" width="180">
           <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
-        </ElTable.Column>
+        </ElTableColumn>
       </ElTable>
     </ElCard>
   </div>

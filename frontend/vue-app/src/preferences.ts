@@ -23,6 +23,10 @@ export const overridesPreferences = defineOverridesPreferences({
   theme: {
     mode: 'light',
   },
+  transition: {
+    // Vben 5.7 的 out-in 路由动画在第二次客户端跳转后会保留空节点，先禁用避免页面空白。
+    enable: false,
+  },
   tabbar: {
     enable: false,
   },

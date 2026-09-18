@@ -73,9 +73,12 @@ docker build --platform "$PLATFORM" --provenance=false --sbom=false \
   "$REPO_ROOT"
 
 # --- 构建前端镜像 ---
-echo "==> 构建前端镜像 (knowledge-hub-frontend:$IMAGE_TAG)"
+# FRONTEND_APP 选择构建 react-app / vue-app（可在 deploy/.env 配置，默认 react-app）
+FRONTEND_APP=${FRONTEND_APP:-$(env_get FRONTEND_APP react-app)}
+echo "==> 构建前端镜像 (knowledge-hub-frontend:$IMAGE_TAG  app=$FRONTEND_APP)"
 docker build --platform "$PLATFORM" --provenance=false --sbom=false \
   -f "$FRONTEND_DOCKERFILE" \
+  --build-arg FRONTEND_APP="$FRONTEND_APP" \
   -t "knowledge-hub-frontend:$IMAGE_TAG" -t "knowledge-hub-frontend:latest" \
   "$REPO_ROOT"
 

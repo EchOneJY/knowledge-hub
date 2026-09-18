@@ -61,7 +61,10 @@ export const documentApi = {
   create: (body: Record<string, unknown>) =>
     requestClient.post<DocumentItem>('/documents', body),
   update: (id: string, body: Record<string, unknown>) =>
-    requestClient.patch<DocumentItem>(`/documents/${id}`, body),
+    requestClient.request<DocumentItem>(`/documents/${id}`, {
+      data: body,
+      method: 'PATCH',
+    }),
   remove: (id: string) =>
     requestClient.delete<{ affected?: number }>(`/documents/${id}`),
   publish: (id: string) =>

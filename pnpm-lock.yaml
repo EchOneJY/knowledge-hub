@@ -153,6 +153,9 @@ catalogs:
     defu:
       specifier: ^6.1.7
       version: 6.1.7
+    dompurify:
+      specifier: ^3.2.6
+      version: 3.4.15
     dotenv:
       specifier: ^17.4.2
       version: 17.4.2
@@ -189,6 +192,9 @@ catalogs:
     lucide-vue-next:
       specifier: ^0.577.0
       version: 0.577.0
+    marked:
+      specifier: ^16.1.2
+      version: 16.4.2
     nprogress:
       specifier: ^0.2.0
       version: 0.2.0
@@ -1499,9 +1505,18 @@ importers:
       dayjs:
         specifier: 'catalog:'
         version: 1.11.23
+      dompurify:
+        specifier: 'catalog:'
+        version: 3.4.15
+      echarts:
+        specifier: 'catalog:'
+        version: 6.1.0
       element-plus:
         specifier: 'catalog:'
         version: 2.14.5(vue@3.5.43(typescript@6.0.3))
+      marked:
+        specifier: 'catalog:'
+        version: 16.4.2
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@6.0.3)(vue@3.5.43(typescript@6.0.3))
@@ -1524,6 +1539,9 @@ importers:
       unplugin-element-plus:
         specifier: 'catalog:'
         version: 0.11.2(magic-string@0.30.21)(rolldown@1.2.7)
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.2(@types/node@25.9.7)(esbuild@0.25.12)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(terser@5.51.2)(yaml@2.9.1)
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.9.7)(happy-dom@20.14.5)(vite@8.2.2(@types/node@25.9.7)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(terser@5.51.2)(yaml@2.9.1))
@@ -6895,6 +6913,9 @@ packages:
     resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
     engines: {node: '>= 4'}
 
+  dompurify@3.4.15:
+    resolution: {integrity: sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==}
+
   domutils@2.8.0:
     resolution: {integrity: sha512-w96Cjofp72M5IIhpjgobBimYEfoPjx1Vx0BSX9P30WBdZW2WIKU0T1Bd0kz2eNZ9ikjKgHbEyKx8BB6H1L3h3A==}
 
@@ -8758,6 +8779,11 @@ packages:
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
+
+  marked@16.4.2:
+    resolution: {integrity: sha512-TI3V8YYWvkVf3KJe1dRkpnjs68JUPyEa5vjKrp1XEEJUAOaQc+Qj+L1qWbPd0SJuAdQkFU0h73sXXqwDYxsiDA==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -18094,6 +18120,10 @@ snapshots:
     dependencies:
       domelementtype: 2.3.0
 
+  dompurify@3.4.15:
+    optionalDependencies:
+      '@types/trusted-types': 2.0.7
+
   domutils@2.8.0:
     dependencies:
       dom-serializer: 1.4.1
@@ -20281,6 +20311,8 @@ snapshots:
       xmlbuilder: 10.1.1
 
   markdown-table@3.0.4: {}
+
+  marked@16.4.2: {}
 
   math-intrinsics@1.1.0: {}
 
