@@ -52,7 +52,7 @@ function openPermissions(row: RoleItem) {
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <RoleGrid>
         <template #table-title>
-          <SectionTitle icon="lucide:shield-check" title="角色权限" />
+          <SectionTitle title="角色权限" />
         </template>
         <template #toolbar-tools>
           <ElButton class="mr-2" type="primary" @click="roleCreateApi.open()">新建角色</ElButton>

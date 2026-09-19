@@ -89,7 +89,7 @@ function openReview(row: ReviewTask, nextAction: 'approve' | 'reject') {
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <ReviewGrid>
         <template #table-title>
-          <SectionTitle icon="lucide:bell" title="审核工作台" />
+          <SectionTitle title="审核工作台" />
         </template>
         <template #document="{ row }">
           <a class="text-primary hover:underline" @click="$router.push(`/documents/${row.documentId}`)">

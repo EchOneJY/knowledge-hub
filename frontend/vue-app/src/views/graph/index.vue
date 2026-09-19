@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { ElButton, ElDatePicker, ElEmpty, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus';
+import { ElButton, ElEmpty, ElMessage } from 'element-plus';
 
 import { graphApi } from '#/api';
 import type { GraphOverview, GraphViewNode } from '#/api';
+import { useVbenForm } from '#/adapter/form';
 import { ApiError } from '#/api/request';
 import { SectionTitle } from '#/components/section-title';
 import { formatTime } from '#/utils';
@@ -36,15 +37,54 @@ const emptyOverview: GraphOverview = {
 };
 
 const router = useRouter();
-const keyword = shallowRef('');
-const entityType = shallowRef<string>();
-const dateRange = shallowRef<[Date, Date]>();
 const data = shallowRef<GraphOverview>(emptyOverview);
 const loading = shallowRef(false);
 const selected = shallowRef<GraphViewNode | null>(null);
 const graphRef = useTemplateRef<InstanceType<typeof ForceGraph>>('graphRef');
 
-async function load(overrides?: {
+// 搜索筛选统一走 useVbenForm(对照 react-app GraphPage 的筛选区)
+const [GraphForm, graphFormApi] = useVbenForm({
+  // 检索/重置按钮间距收窄
+  actionWrapperClass: 'gap-1',
+  commonConfig: { hideLabel: true },
+  handleReset: onReset,
+  handleSubmit: onSearch,
+  resetButtonOptions: { content: '重置' },
+  schema: [
+    {
+      component: 'Input',
+      componentProps: { clearable: true, placeholder: '输入关键词检索…' },
+      fieldName: 'keyword',
+      // 关键词最宽
+      formItemClass: 'lg:col-span-2',
+    },
+    {
+      component: 'Select',
+      componentProps: { clearable: true, options: [], placeholder: '节点类型' },
+      fieldName: 'entityType',
+      // 类型选择最窄
+      formItemClass: 'lg:col-span-1',
+    },
+    {
+      component: 'DatePicker',
+      componentProps: {
+        endPlaceholder: '结束日期',
+        startPlaceholder: '开始日期',
+        type: 'daterange',
+        valueFormat: 'YYYY-MM-DD',
+      },
+      fieldName: 'dateRange',
+      // 日期范围较宽
+      formItemClass: 'lg:col-span-2',
+    },
+  ],
+  showCollapseButton: false,
+  submitButtonOptions: { content: '检索' },
+  submitOnEnter: true,
+  wrapperClass: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-6',
+});
+
+async function load(filters?: {
   entityType?: null | string;
   from?: null | string;
   keyword?: null | string;
@@ -54,12 +94,23 @@ async function load(overrides?: {
   try {
     data.value = await graphApi.overview({
       docLimit: 24,
-      entityType: overrides && 'entityType' in overrides ? overrides.entityType || undefined : entityType.value || undefined,
-      from: overrides && 'from' in overrides ? overrides.from || undefined : dateRange.value?.[0]?.toISOString(),
-      keyword: overrides && 'keyword' in overrides ? overrides.keyword || undefined : keyword.value.trim() || undefined,
-      to: overrides && 'to' in overrides ? overrides.to || undefined : dateRange.value?.[1]?.toISOString(),
+      entityType: filters?.entityType || undefined,
+      from: filters?.from || undefined,
+      keyword: filters?.keyword || undefined,
+      to: filters?.to || undefined,
     });
     selected.value = null;
+    // 节点类型选项由后端返回的实体类型动态填充
+    graphFormApi.updateSchema([
+      {
+        componentProps: {
+          clearable: true,
+          options: data.value.entityTypes.map((type) => ({ label: type, value: type })),
+          placeholder: '节点类型',
+        },
+        fieldName: 'entityType',
+      },
+    ]);
   } catch (error) {
     ElMessage.error(error instanceof ApiError ? error.message : '图谱加载失败');
   } finally {
@@ -67,11 +118,20 @@ async function load(overrides?: {
   }
 }
 
-function reset() {
-  keyword.value = '';
-  entityType.value = undefined;
-  dateRange.value = undefined;
-  void load({ entityType: null, from: null, keyword: '', to: null });
+async function onSearch(values: Record<string, unknown>) {
+  const range = values.dateRange as [string, string] | null | undefined;
+  await load({
+    entityType: (values.entityType as string) || null,
+    from: range?.[0] ?? null,
+    keyword: String(values.keyword ?? '').trim() || null,
+    to: range?.[1] ?? null,
+  });
+}
+
+// handleReset 存在时框架不再自动清空,需手动重置表单后重新加载
+async function onReset() {
+  await graphFormApi.resetForm();
+  await load();
 }
 
 function selectNode(node: GraphViewNode) {
@@ -79,12 +139,12 @@ function selectNode(node: GraphViewNode) {
 }
 
 const statItems = [
-  { key: 'documentCount', label: '文档节点', icon: 'lucide:file-text' },
-  { key: 'entityCount', label: '知识点', icon: 'lucide:lightbulb' },
-  { key: 'relatedCount', label: '实体关系', icon: 'lucide:git-branch' },
-  { key: 'mentionCount', label: '文档提及', icon: 'lucide:at-sign' },
-  { key: 'tagCount', label: '当前标签', icon: 'lucide:tags' },
-  { key: 'edgeCount', label: '画布边数', icon: 'lucide:spline' },
+  { key: 'documentCount', label: '文档节点' },
+  { key: 'entityCount', label: '知识点' },
+  { key: 'relatedCount', label: '实体关系' },
+  { key: 'mentionCount', label: '文档提及' },
+  { key: 'tagCount', label: '当前标签' },
+  { key: 'edgeCount', label: '画布边数' },
 ] as const;
 
 onMounted(() => void load());
@@ -93,36 +153,13 @@ onMounted(() => void load());
 <template>
   <!-- 固定高度：页面不滚动，画布与侧栏各自滚动 -->
   <div class="grid h-[calc(100vh-50px)] grid-cols-1 gap-4 overflow-hidden p-4 xl:grid-cols-[1fr_320px]">
-    <div class="flex min-h-0 flex-col">
-      <div class="mb-3 flex flex-wrap items-center gap-3">
-        <ElInput v-model="keyword" class="!w-64" clearable placeholder="输入关键词检索你有权限的图谱…" @keydown.enter="load()" />
-        <ElSelect v-model="entityType" class="!w-40" clearable placeholder="节点类型" @change="(value?: string) => load({ entityType: value ?? null })">
-          <ElOption v-for="type in data.entityTypes" :key="type" :label="type" :value="type" />
-        </ElSelect>
-        <ElDatePicker
-          v-model="dateRange"
-          end-placeholder="结束日期"
-          start-placeholder="开始日期"
-          type="daterange"
-          value-format="YYYY-MM-DD"
-          @change="(value: unknown) => {
-            const range = value as [string, string] | null;
-            void load({ from: range?.[0] ?? null, to: range?.[1] ?? null });
-          }"
-        />
-        <ElButton @click="reset">重置</ElButton>
-        <ElButton :loading="loading" type="primary" @click="load()">
-          <IconifyIcon class="mr-1" icon="lucide:search" />
-          检索
-        </ElButton>
-        <span class="text-muted-foreground hidden text-xs lg:block">仅展示你有权限的文档及其实体</span>
-        <ElButton class="ml-auto" @click="graphRef?.exportPng()">
-          <IconifyIcon class="mr-1" icon="lucide:download" />
-          导出图谱
-        </ElButton>
+    <!-- 主面板:工具栏与画布合并为一张卡片,分隔线区隔,对齐 react-app 观感 -->
+    <div class="bg-card flex min-h-0 flex-col overflow-hidden rounded-lg border">
+      <div class="border-b px-4 pt-4">
+        <GraphForm />
       </div>
 
-      <div class="bg-card relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+      <div v-loading="loading" class="bg-muted/30 relative min-h-0 flex-1 overflow-hidden">
         <ForceGraph
           v-if="data.nodes.length"
           ref="graphRef"
@@ -134,79 +171,102 @@ onMounted(() => void load());
           <ElEmpty description="暂无你有权限的图谱数据。发布文档后会写入 Neo4j。" />
         </div>
 
-        <div class="bg-background/80 pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-md p-2 text-xs">
-          <span><i class="mr-1 inline-block h-2 w-2 rounded-full" style="background:#1677ff" />文档</span>
-          <span><i class="mr-1 inline-block h-2 w-2 rounded-full" style="background:#52c41a" />知识点</span>
-          <span><i class="mr-1 inline-block h-2 w-2 rounded-full" style="background:#fa8c16" />人物</span>
-          <span><i class="mr-1 inline-block h-2 w-2 rounded-full" style="background:#13c2c2" />组织</span>
-          <span><i class="mr-1 inline-block h-2 w-2 rounded-full" style="background:#722ed1" />标签</span>
+        <ElButton class="absolute right-4 top-4" @click="graphRef?.exportPng()">
+          <IconifyIcon class="mr-1" icon="lucide:download" />
+          导出图谱
+        </ElButton>
+
+        <div class="bg-background/90 text-muted-foreground pointer-events-none absolute bottom-3 left-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3 py-2 text-xs">
+          <span><i class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:#1677ff" />文档</span>
+          <span><i class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:#52c41a" />知识点</span>
+          <span><i class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:#fa8c16" />人物</span>
+          <span><i class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:#13c2c2" />组织</span>
+          <span><i class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:#722ed1" />标签</span>
+          <span><i class="mr-1 inline-block h-0 w-5 border-t-2 align-middle" style="border-color:#1677ff" />提及</span>
+          <span><i class="mr-1 inline-block h-0 w-5 border-t-2 border-dashed align-middle" style="border-color:#8c8c8c" />关联</span>
+          <span><i class="mr-1 inline-block h-0 w-5 border-t-2 border-dashed align-middle" style="border-color:#722ed1" />标注</span>
         </div>
 
-        <div class="absolute right-3 top-3 flex gap-2">
-          <ElButton size="small" @click="graphRef?.zoomIn()">+</ElButton>
-          <ElButton size="small" @click="graphRef?.zoomOut()">-</ElButton>
-          <ElButton size="small" @click="graphRef?.reset()">复位</ElButton>
-          <ElButton size="small" @click="load()">刷新</ElButton>
-        </div>
-        <div class="text-muted-foreground absolute bottom-3 right-3 text-xs">
-          可拖拽节点，滚轮缩放；点击节点查看详情
+        <div class="graph-zoom absolute bottom-4 right-4 flex flex-col items-center gap-2">
+          <ElButton circle title="放大" @click="graphRef?.zoomIn()">
+            <IconifyIcon class="text-base" icon="lucide:plus" />
+          </ElButton>
+          <ElButton circle title="缩小" @click="graphRef?.zoomOut()">
+            <IconifyIcon class="text-base" icon="lucide:minus" />
+          </ElButton>
+          <ElButton circle title="复位" @click="graphRef?.reset()">
+            <IconifyIcon class="text-base" icon="lucide:shrink" />
+          </ElButton>
+          <ElButton circle title="刷新" @click="load()">
+            <IconifyIcon class="text-base" icon="lucide:refresh-cw" />
+          </ElButton>
         </div>
       </div>
     </div>
 
-    <aside class="min-h-0 space-y-3 overflow-y-auto pr-1">
-      <div class="bg-card rounded-lg border p-4">
-        <SectionTitle icon="lucide:bar-chart-3" title="图谱数据统计" />
-        <div class="mt-3 grid grid-cols-2 gap-3">
-          <div v-for="item in statItems" :key="item.key" class="rounded-md border p-2">
-            <div class="flex items-center gap-2">
-              <IconifyIcon :icon="item.icon" class="text-primary text-sm" />
-              <span class="text-lg font-semibold">{{ data.stats[item.key] }}</span>
-            </div>
-            <div class="text-muted-foreground mt-1 text-xs">{{ item.label }}</div>
+    <aside class="min-h-0 space-y-4 overflow-y-auto pr-1">
+      <div class="bg-card rounded-lg border p-5">
+        <SectionTitle title="图谱数据统计" />
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <div v-for="item in statItems" :key="item.key" class="bg-muted/40 rounded-lg py-3.5 text-center">
+            <div class="text-primary text-xl font-semibold leading-none">{{ data.stats[item.key] }}</div>
+            <div class="text-muted-foreground mt-2 text-xs">{{ item.label }}</div>
           </div>
         </div>
       </div>
 
-      <div class="bg-card rounded-lg border p-4">
-        <SectionTitle icon="lucide:pie-chart" title="知识点类型分布" />
-        <div class="mt-3">
+      <div class="bg-card rounded-lg border p-5">
+        <SectionTitle title="知识点类型分布" />
+        <div class="mt-4">
           <EntityTypePie v-if="data.stats.entityTypes.length" :items="data.stats.entityTypes" />
           <ElEmpty v-else description="暂无" />
         </div>
       </div>
 
-      <div class="bg-card rounded-lg border p-4">
-        <SectionTitle icon="lucide:flame" title="热门知识点 TOP5" />
-        <ol v-if="data.topEntities.length" class="mt-3 space-y-2 pl-0">
-          <li v-for="(entity, index) in data.topEntities" :key="entity.name" class="flex items-center gap-2">
-            <span class="bg-primary text-primary-foreground h-5 w-5 rounded-full text-center text-xs leading-5">{{ index + 1 }}</span>
+      <div class="bg-card rounded-lg border p-5">
+        <SectionTitle title="热门知识点 TOP5" />
+        <ol v-if="data.topEntities.length" class="mt-3 space-y-0.5 pl-0">
+          <li
+            v-for="(entity, index) in data.topEntities"
+            :key="entity.name"
+            class="hover:bg-muted/50 flex items-center gap-3 rounded-md px-2 py-2 transition-colors"
+          >
+            <span
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium"
+              :class="index < 3 ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'"
+            >{{ index + 1 }}</span>
             <span class="min-w-0 flex-1 truncate text-sm">{{ entity.name }}</span>
-            <span class="text-muted-foreground text-xs">{{ entity.degree }}</span>
+            <span class="text-muted-foreground shrink-0 text-xs tabular-nums">{{ entity.degree }}</span>
           </li>
         </ol>
         <ElEmpty v-else description="暂无" />
       </div>
 
-      <div class="bg-card rounded-lg border p-4">
-        <SectionTitle icon="lucide:history" title="最近更新节点" />
-        <div v-for="node in data.recentNodes" :key="node.id" class="mt-2">
-          <div class="truncate text-sm">{{ node.name }}</div>
-          <div class="text-muted-foreground text-xs">{{ formatTime(node.updatedAt) }}</div>
+      <div class="bg-card rounded-lg border p-5">
+        <SectionTitle title="最近更新节点" />
+        <div v-if="data.recentNodes.length" class="mt-3">
+          <div
+            v-for="node in data.recentNodes"
+            :key="node.id"
+            class="border-border/60 border-b py-2.5 last:border-b-0 last:pb-0"
+          >
+            <div class="truncate text-sm">{{ node.name }}</div>
+            <div class="text-muted-foreground mt-1 text-xs">{{ formatTime(node.updatedAt) }}</div>
+          </div>
         </div>
-        <div v-if="!data.recentNodes.length" class="text-muted-foreground mt-2 text-sm">暂无</div>
+        <div v-else class="text-muted-foreground mt-2 text-sm">暂无</div>
       </div>
 
-      <div v-if="selected" class="bg-card rounded-lg border p-4">
-        <SectionTitle icon="lucide:scan-eye" title="当前节点" />
-        <div class="mt-2 text-sm">{{ selected.name }}</div>
-        <div class="text-muted-foreground mt-1 text-xs">
+      <div v-if="selected" class="bg-card rounded-lg border p-5">
+        <SectionTitle title="当前节点" />
+        <div class="mt-3 text-sm font-medium">{{ selected.name }}</div>
+        <span class="bg-muted text-muted-foreground mt-2 inline-block rounded px-2 py-0.5 text-xs">
           {{ selected.kind === 'document' ? '文档' : selected.kind === 'tag' ? '标签' : selected.type || '知识点' }}
-        </div>
-        <p v-if="selected.description" class="mt-2 text-sm">{{ selected.description }}</p>
+        </span>
+        <p v-if="selected.description" class="text-muted-foreground mt-3 text-sm leading-relaxed">{{ selected.description }}</p>
         <ElButton
           v-if="selected.documentId"
-          class="mt-2"
+          class="mt-3"
           link
           type="primary"
           @click="router.push(`/documents/${selected.documentId}`)"
@@ -217,3 +277,10 @@ onMounted(() => void load());
     </aside>
   </div>
 </template>
+
+<style scoped>
+/* Element Plus 相邻按钮默认 margin-left:12px,竖排缩放控件时会破坏垂直对齐,这里清零 */
+.graph-zoom :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+</style>

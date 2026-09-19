@@ -1,7 +1,4 @@
-/** AI 会话与流式问答接口。 */
-import { useAppConfig } from '@vben/hooks';
-import { useAccessStore } from '@vben/stores';
-
+/** AI 会话与问答 REST 接口(流式问答由 @ai-sdk/vue 的 useChat 直连,见 views/chat)。 */
 import { requestClient } from '#/api/request';
 
 import type { PageResult } from './document';
@@ -68,71 +65,3 @@ export const aiApi = {
   removeSession: (id: string) =>
     requestClient.delete<{ message: string }>(`/ai/sessions/${id}`),
 };
-
-export interface ChatStreamEvent {
-  data?: unknown;
-  delta?: string;
-  errorText?: string;
-  id?: string;
-  type: string;
-}
-
-export interface ChatStreamInput {
-  messages: Array<{
-    parts?: Array<{ text?: string; type?: string }>;
-    role?: string;
-  }>;
-  messageId?: string;
-  sessionId?: string;
-  topK?: number;
-  trigger?: string;
-}
-
-/**
- * 原生读取 AI SDK UI Message Stream，避免为了 Vue 端引入 React Hooks 适配层。
- */
-export async function streamChat(
-  body: ChatStreamInput,
-  onEvent: (event: ChatStreamEvent) => void,
-  signal?: AbortSignal,
-) {
-  const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
-  const token = useAccessStore().accessToken;
-  const response = await fetch(`${apiURL}/ai/chat/stream`, {
-    body: JSON.stringify(body),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-    signal,
-  });
-
-  if (!response.ok || !response.body) {
-    const text = await response.text().catch(() => '');
-    throw new Error(text || `请求失败（${response.status}）`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const chunks = buffer.split('\n\n');
-    buffer = chunks.pop() ?? '';
-    for (const chunk of chunks) {
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data:')) continue;
-        const raw = line.slice(5).trim();
-        if (!raw || raw === '[DONE]') continue;
-        try {
-          onEvent(JSON.parse(raw) as ChatStreamEvent);
-        } catch {
-          // 忽略协议外的心跳或非 JSON 片段
-        }
-      }
-    }
-  }
-}

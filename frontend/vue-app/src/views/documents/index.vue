@@ -156,7 +156,7 @@ async function publish(row: DocumentItem) {
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <DocumentGrid>
         <template #table-title>
-          <SectionTitle icon="lucide:file-text" title="可见文档">
+          <SectionTitle title="可见文档">
             <span class="text-muted-foreground ml-1 hidden text-xs font-normal lg:inline">
               只展示你能看的文档：公开、所在团队，以及自己写的；编辑 / 发布仅作者或管理员可用
             </span>

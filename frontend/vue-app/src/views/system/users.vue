@@ -93,7 +93,7 @@ function openPassword(row: UserVO) {
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <UserGrid>
         <template #table-title>
-          <SectionTitle icon="lucide:users" title="用户管理" />
+          <SectionTitle title="用户管理" />
         </template>
         <template #toolbar-tools>
           <ElButton class="mr-2" type="primary" @click="userCreateApi.open()">新建用户</ElButton>

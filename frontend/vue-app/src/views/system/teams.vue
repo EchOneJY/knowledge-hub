@@ -78,7 +78,7 @@ function openMembers(row: TeamItem) {
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <TeamGrid>
         <template #table-title>
-          <SectionTitle icon="lucide:users-round" title="团队管理" />
+          <SectionTitle title="团队管理" />
         </template>
         <template #toolbar-tools>
           <ElButton class="mr-2" type="primary" @click="teamCreateApi.open()">新建团队</ElButton>
