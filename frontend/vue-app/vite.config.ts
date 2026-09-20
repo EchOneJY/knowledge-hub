@@ -6,6 +6,12 @@ export default defineConfig(async () => {
   return {
     application: {},
     vite: {
+      // vue-router 因 peer 差异在 pnpm 里存在多份物理副本（vue/pinia 已由 overrides 统一，
+      // 唯独 vue-router 未纳入），生产打包会打进多个实例，导致 routerKey 不一致、
+      // useRouter() inject 失败白屏。强制去重到单份规避。
+      resolve: {
+        dedupe: ['vue', 'vue-router', 'pinia'],
+      },
       plugins: [
         ElementPlus({
           format: 'esm',
