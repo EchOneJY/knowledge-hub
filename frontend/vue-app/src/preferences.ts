@@ -28,7 +28,9 @@ export const overridesPreferences = defineOverridesPreferences({
     enable: false,
   },
   tabbar: {
-    enable: false,
+    // 开启多标签页以启用 vben 的 keep-alive（全局开关 = tabbar.enable && tabbar.keepAlive）；
+    // 具体缓存哪些页面由各路由 meta.keepAlive 控制。
+    enable: true,
   },
   widget: {
     languageToggle: false,

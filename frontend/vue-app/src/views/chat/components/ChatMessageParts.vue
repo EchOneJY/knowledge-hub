@@ -34,8 +34,9 @@ const props = withDefaults(
   defineProps<{
     message: KhUIMessage;
     showSources?: boolean;
+    streaming?: boolean;
   }>(),
-  { showSources: true },
+  { showSources: true, streaming: false },
 );
 
 type ProcItem =
@@ -117,6 +118,9 @@ const processItems = computed<Array<{ item: ProcItem; key: string }>>(() => {
     }
 
     if (part.type === 'data-status') {
+      // status 是实时进度指示(如「正在理解问题…」);流结束或被停止后不应残留,
+      // 仅在本条消息仍在流式时展示。
+      if (!props.streaming) return;
       if (part.data.stage === 'generate') return;
       if (part.data.stage === 'retrieve' && hasRetrieve.value) return;
       out.push({ item: { kind: 'status', text: part.data.text }, key: `s-${i}` });

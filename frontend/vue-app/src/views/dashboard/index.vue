@@ -66,7 +66,7 @@ onMounted(() => {
 
 <template>
   <!-- 固定高度:页面不滚动,表格内部滚动 -->
-  <div class="flex h-[calc(100vh-50px)] flex-col gap-4 p-4">
+  <div class="flex h-[var(--vben-content-height)] flex-col gap-4 p-4">
     <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
       <StatCard icon="lucide:file-text" label="我的文档" :value="stats?.documentCount ?? 0" />
       <StatCard icon="lucide:eye" label="浏览合计" tone="purple" :value="stats?.viewCount ?? 0" />

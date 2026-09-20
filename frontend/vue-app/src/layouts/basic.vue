@@ -7,6 +7,7 @@ import { BasicLayout, LockScreen, UserDropdown } from '@vben/layouts';
 import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
+import { ChatFab } from '#/components/chat-fab';
 import { useAuthStore } from '#/store';
 import { hasAccessByCodes } from '#/utils/access';
 import LoginForm from '#/views/_core/authentication/login.vue';
@@ -63,6 +64,7 @@ async function handleLogout() {
       >
         <LoginForm />
       </AuthenticationLoginExpiredModal>
+      <ChatFab />
     </template>
     <template #lock-screen>
       <LockScreen :avatar @to-login="handleLogout" />

@@ -11,7 +11,6 @@ import type { SearchHit } from '#/api';
 import { useVbenForm } from '#/adapter/form';
 import { ApiError } from '#/api/request';
 import { FileTypeIcon } from '#/components/file-type-icon';
-import { SectionTitle } from '#/components/section-title';
 import { DOC_STATUS, formatTime, safeHighlight, visibilityMeta } from '#/utils';
 
 /** 全文检索：搜索项统一走 useVbenForm，结果卡片保留高亮摘要，状态过滤在前端执行。 */
@@ -116,21 +115,15 @@ function docTags(tags?: null | string) {
 
 <template>
   <!-- 固定高度：页面白底铺满，结果区内部滚动 -->
-  <div class="flex h-[calc(100vh-50px)] flex-col p-4">
+  <div class="flex h-[var(--vben-content-height)] flex-col p-4">
     <div class="bg-card flex min-h-0 flex-1 flex-col rounded-lg border">
-      <!-- 顶部：标题 + 单行搜索，固定不滚动 -->
-      <div class="px-4 py-3">
-        <div class="mb-3 flex items-center gap-2">
-          <span class="text-muted-foreground hidden text-sm lg:inline">
-            只会检索你有权限的已发布文档：公开、所在团队，以及自己写的。
-          </span>
-        </div>
-
+      <!-- 顶部：单行搜索，固定不滚动 -->
+      <div class="p-4 pb-2 border-b">
         <SearchForm />
 
         <div
           v-if="elapsed !== null"
-          class="text-muted-foreground/70 flex flex-wrap items-center justify-between gap-3 text-sm"
+          class="text-muted-foreground/70 flex flex-wrap items-center justify-between gap-3 text-[13px] px-1"
         >
           <span v-if="resultMeta">{{ resultMeta }}</span>
           <span class="ml-auto">相关度排序</span>
@@ -139,6 +132,36 @@ function docTags(tags?: null | string) {
 
       <!-- 结果区：内部滚动 -->
       <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <!-- 搜索前占位：引导输入关键词并说明检索范围 -->
+        <div
+          v-if="!searched"
+          class="text-muted-foreground flex h-full flex-col items-center justify-center gap-4 py-8 text-center"
+        >
+          <div class="bg-accent/60 flex size-16 items-center justify-center rounded-full">
+            <IconifyIcon class="text-primary size-8" icon="lucide:search" />
+          </div>
+          <div>
+            <p class="text-foreground m-0 text-base font-medium">开始检索文档</p>
+            <p class="mx-auto mt-1.5 mb-0 max-w-md text-sm leading-relaxed">
+              输入关键词，在你有权限的已发布文档中进行全文检索，命中的标题与内容会高亮显示。
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-2 text-xs">
+            <span class="bg-muted/60 flex items-center gap-1 rounded-md px-2.5 py-1">
+              <IconifyIcon icon="lucide:file-search" />
+              标题、正文全文匹配
+            </span>
+            <span class="bg-muted/60 flex items-center gap-1 rounded-md px-2.5 py-1">
+              <IconifyIcon icon="lucide:filter" />
+              可按分类、状态筛选
+            </span>
+            <span class="bg-muted/60 flex items-center gap-1 rounded-md px-2.5 py-1">
+              <IconifyIcon icon="lucide:shield-check" />
+              仅展示你有权限的文档
+            </span>
+          </div>
+        </div>
+
         <ElEmpty v-if="!items.length && searched && !loading" description="没有匹配的可见文档" />
 
         <div class="divide-border divide-y">

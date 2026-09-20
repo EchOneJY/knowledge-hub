@@ -143,8 +143,14 @@ watch(() => [props.nodes, props.edges], () => render());
 onMounted(() => {
   render();
   observer = new ResizeObserver(() => {
-    chart.value?.resize();
-    render();
+    // 尺寸变化仅按新尺寸重绘(保留已算好的节点布局);keepAlive 缓存/恢复会触发
+    // 0↔实际尺寸切换,若在此重跑 render() 会以 notMerge 重建并重算力导向布局,造成卡顿。
+    // 仅当图表尚未初始化(首次尺寸为 0 的延迟渲染场景)时才 render()。
+    if (chart.value) {
+      chart.value.resize();
+    } else {
+      render();
+    }
   });
   if (elRef.value) observer.observe(elRef.value);
 });

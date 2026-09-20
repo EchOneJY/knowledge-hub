@@ -11,6 +11,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['system:user'],
       icon: 'lucide:user-cog',
+      keepAlive: true,
       menuGroup: '系统管理',
       order: -15,
       title: '用户管理',
@@ -23,6 +24,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['system:role'],
       icon: 'lucide:shield-check',
+      keepAlive: true,
       menuGroup: '系统管理',
       order: -14,
       title: '角色权限',
@@ -35,6 +37,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['system:team'],
       icon: 'lucide:users',
+      keepAlive: true,
       menuGroup: '系统管理',
       order: -13,
       title: '团队管理',

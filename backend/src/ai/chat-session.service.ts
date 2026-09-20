@@ -38,10 +38,17 @@ export class ChatSessionService {
 
   async create(userId: string, dto: CreateSessionDto) {
     const title = dto.title?.trim() || DEFAULT_TITLE;
+    // 会话按 updatedAt DESC 排序。DB 列为 timestamp(无时区),而进程时区为 UTC+8:
+    // 若交给 @CreateDateColumn/@UpdateDateColumn 由 DB 时钟(真 UTC)写入,与其它经
+    // appendTurn 用 JS new Date()(被驱动按本地时区 +8h 写入)落库的行不在同一时钟上,
+    // 新建会话会排到列表中间。这里显式用 JS 时钟写入,与全库其余写入口径统一。
+    const now = new Date();
     const session = this.em.create(AiSessionEntity, {
       id: nextSnowflakeId(),
       userId,
       title: title.slice(0, 80),
+      createdAt: now,
+      updatedAt: now,
     });
     return this.em.save(session);
   }
@@ -49,6 +56,8 @@ export class ChatSessionService {
   async rename(userId: string, id: string, dto: UpdateSessionDto) {
     const session = await this.getOwned(userId, id);
     session.title = dto.title.trim().slice(0, 80);
+    // 与 create/appendTurn 统一走 JS 时钟,避免 @UpdateDateColumn 用 DB 时钟写入造成排序错乱
+    session.updatedAt = new Date();
     return this.em.save(session);
   }
 
@@ -58,6 +67,8 @@ export class ChatSessionService {
     if (session.title === DEFAULT_TITLE) {
       session.title = titleFromQuestion(question);
     }
+    // 与 create/appendTurn 统一走 JS 时钟
+    session.updatedAt = new Date();
     return this.em.save(session);
   }
 

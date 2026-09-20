@@ -11,6 +11,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['search'],
       icon: 'lucide:search',
+      keepAlive: true,
       menuGroup: '知识检索',
       order: -18,
       title: '文档搜索',
@@ -28,6 +29,7 @@ const routes: RouteRecordRaw[] = [
       // query 变化不重挂载(对齐 react-app:切 search param 不重建组件)。
       fullPathKey: false,
       icon: 'lucide:messages-square',
+      keepAlive: true,
       // 不归入「知识检索」分组,作为独立顶级菜单排在最前
       // 登录默认落地页
       order: -30,
@@ -41,6 +43,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['search'],
       icon: 'lucide:share-2',
+      keepAlive: true,
       menuGroup: '知识检索',
       order: -16,
       title: '知识图谱',

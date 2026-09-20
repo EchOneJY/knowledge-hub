@@ -152,7 +152,7 @@ onMounted(() => void load());
 
 <template>
   <!-- 固定高度：页面不滚动，画布与侧栏各自滚动 -->
-  <div class="grid h-[calc(100vh-50px)] grid-cols-1 gap-4 overflow-hidden p-4 xl:grid-cols-[1fr_320px]">
+  <div class="grid h-[var(--vben-content-height)] grid-cols-1 gap-4 overflow-hidden p-4 xl:grid-cols-[1fr_320px]">
     <!-- 主面板:工具栏与画布合并为一张卡片,分隔线区隔,对齐 react-app 观感 -->
     <div class="bg-card flex min-h-0 flex-col overflow-hidden rounded-lg border">
       <div class="border-b px-4 pt-4">

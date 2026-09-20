@@ -97,7 +97,7 @@ onMounted(load);
 
 <template>
   <!-- 固定高度：页面不滚动，正文内部滚动 -->
-  <div v-loading="loading" class="flex h-[calc(100vh-50px)] flex-col p-4">
+  <div v-loading="loading" class="flex h-[var(--vben-content-height)] flex-col p-4">
     <template v-if="doc">
       <div class="bg-card mb-4 rounded-lg border px-4 py-3">
         <div class="flex flex-wrap items-center gap-2">

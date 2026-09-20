@@ -85,7 +85,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-50px)] flex-col p-4">
+  <div class="flex h-[var(--vben-content-height)] flex-col p-4">
     <div class="min-h-0 flex-1 space-y-4 overflow-y-auto">
     <ElRow :gutter="16">
       <ElCol :span="8">

@@ -85,7 +85,7 @@ function openReview(row: ReviewTask, nextAction: 'approve' | 'reject') {
 
 <template>
   <!-- 固定高度：页面不滚动，表格内部滚动 -->
-  <div class="flex h-[calc(100vh-50px)] flex-col p-4">
+  <div class="flex h-[var(--vben-content-height)] flex-col p-4">
     <div class="min-h-0 flex-1 overflow-hidden rounded-lg">
       <ReviewGrid>
         <template #table-title>

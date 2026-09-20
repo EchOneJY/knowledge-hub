@@ -136,7 +136,7 @@ onMounted(() => {
 
 <template>
   <!-- 固定高度：页面不滚动，表单内部滚动 -->
-  <div v-loading="loading" class="flex h-[calc(100vh-50px)] flex-col p-4">
+  <div v-loading="loading" class="flex h-[var(--vben-content-height)] flex-col p-4">
     <ElEmpty v-if="forbidden && !loading" class="m-auto" description="无权编辑该文档">
       <ElButton @click="router.push('/documents')">返回列表</ElButton>
     </ElEmpty>

@@ -123,6 +123,18 @@ async function send() {
   await sendMessage({ text }, { body: { sessionId: sessionId.value } });
 }
 
+/**
+ * Enter 发送:中文/日文等输入法在选词、上屏时也会触发 keydown.enter,
+ * 此时 event.isComposing 为 true(部分浏览器 keyCode 为 229),须放行给输入法确认,
+ * 不当作发送,避免拼音上屏时被误发。
+ */
+function onEnter(event: Event) {
+  const e = event as KeyboardEvent;
+  if (e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  void send();
+}
+
 function switchSession(id?: string) {
   if (busy.value) {
     ElMessage.warning('请等待当前回答结束再切换会话');
@@ -134,6 +146,11 @@ function switchSession(id?: string) {
 async function createSession() {
   if (busy.value) {
     ElMessage.warning('请等待当前回答结束再开新对话');
+    return;
+  }
+  // 当前已是空的新对话(无会话 id 且无消息),不重复新建
+  if (!sessionId.value && !messages.value.length) {
+    ElMessage.info('当前已是新对话');
     return;
   }
   try {
@@ -213,7 +230,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-4 h-[calc(100vh-50px)]">
+  <div class="p-4 h-[var(--vben-content-height)]">
     <!-- 历史对话与聊天合并为一张卡片,顶部图标折叠/展开左侧历史面板 -->
     <div class="bg-card flex h-full overflow-hidden rounded-lg border">
       <ChatSessionPanel
@@ -240,7 +257,7 @@ onMounted(() => {
             />
           </button>
           <div class="min-w-0">
-            <h2 class="m-0 text-base font-semibold">知识问答</h2>
+            <h2 class="m-0 text-base font-semibold">智能问答</h2>
             <p class="text-muted-foreground mt-1 mb-0 text-sm leading-snug">
               只会检索你有权限的文档(公开、所在团队、自己写的)。流式回答会展示检索、思考与联网搜索过程,并写入左侧会话。
             </p>
@@ -257,7 +274,7 @@ onMounted(() => {
           >
             <IconifyIcon class="size-8" icon="lucide:messages-square" />
           </div>
-          <h3 class="m-0 text-base font-semibold">开始一段知识问答</h3>
+          <h3 class="m-0 text-base font-semibold">开始一段智能问答</h3>
           <p class="text-muted-foreground mt-1.5 mb-5 max-w-md text-sm leading-relaxed">
             基于你有权限的知识库内容生成回答,并展示检索、思考与联网搜索过程。试试这些问题:
           </p>
@@ -286,6 +303,9 @@ onMounted(() => {
         >
           <ChatMessageParts
             :message="m"
+            :streaming="
+              streaming && m.role === 'assistant' && i === messages.length - 1
+            "
             :show-sources="
               !(streaming && m.role === 'assistant' && i === messages.length - 1)
             "
@@ -319,7 +339,7 @@ onMounted(() => {
             :disabled="busy"
             placeholder="例如:上线前如何做金丝雀验证?(Enter 发送,Shift + Enter 换行)"
             type="textarea"
-            @keydown.enter.exact.prevent="send"
+            @keydown.enter.exact="onEnter"
           />
           <button
             v-if="streaming"
