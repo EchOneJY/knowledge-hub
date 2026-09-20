@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Checkbox, Input, Select, Space, Table, Tag, Upload, message } from 'antd'
+import { Button, Checkbox, Input, Popconfirm, Select, Space, Table, Tag, Upload, message } from 'antd'
 import { documentApi } from '../api'
 import { ApiError } from '../api/client'
 import type { DocumentItem } from '../types'
@@ -121,10 +121,30 @@ export default function DocumentsPage() {
             ),
           },
           {
+            title: '摘要',
+            dataIndex: 'summary',
+            width: 220,
+            ellipsis: true,
+            render: (summary?: string | null) => summary || '-',
+          },
+          {
             title: '文件类型',
-            dataIndex: 'title',
             width: 100,
-            render: (title: string) => fileTypeLabel(title),
+            // 优先用后端持久化的文件类型;历史/手写文档回退按标题推断
+            render: (_: unknown, row: DocumentItem) =>
+              row.fileType ? row.fileType.toUpperCase() : fileTypeLabel(row.title),
+          },
+          {
+            title: '所属团队',
+            dataIndex: 'teamName',
+            width: 140,
+            render: (teamName?: string | null) => teamName || '-',
+          },
+          {
+            title: '作者',
+            dataIndex: 'authorName',
+            width: 120,
+            render: (authorName?: string | null) => authorName || '-',
           },
           {
             title: '状态',
@@ -143,11 +163,29 @@ export default function DocumentsPage() {
           { title: '更新时间', dataIndex: 'updatedAt', width: 180, render: formatTime },
           {
             title: '操作',
-            width: 160,
+            width: 220,
+            align: 'center' as const,
             render: (_: unknown, row: DocumentItem) => {
               const writable = can(user, 'document:edit') && canWriteDocument(user, row)
               return (
                 <Space>
+                  {row.fileUrl ? (
+                    <>
+                      {/* 原文件在 RustFS 公开地址:预览新标签打开,下载走 a[download] 兜底 */}
+                      <a onClick={() => window.open(row.fileUrl!, '_blank')}>预览</a>
+                      <a
+                        onClick={() => {
+                          const a = document.createElement('a')
+                          a.href = row.fileUrl!
+                          a.download = ''
+                          a.target = '_blank'
+                          a.click()
+                        }}
+                      >
+                        下载
+                      </a>
+                    </>
+                  ) : null}
                   {writable ? (
                     <a onClick={() => navigate(`/documents/${row.id}/edit`)}>编辑</a>
                   ) : null}
@@ -165,6 +203,27 @@ export default function DocumentsPage() {
                     >
                       发布
                     </a>
+                  ) : null}
+                  {/* 仅已归档(status===2)文档可删除:需 delete 权限且为作者/管理员 */}
+                  {can(user, 'document:delete') && canWriteDocument(user, row) && row.status === 2 ? (
+                    <Popconfirm
+                      title="删除文档"
+                      description="此操作不可恢复，确定删除?"
+                      okText="删除"
+                      cancelText="取消"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={async () => {
+                        try {
+                          await documentApi.remove(row.id)
+                          message.success('已删除')
+                          void load()
+                        } catch (error) {
+                          message.error(error instanceof ApiError ? error.message : '删除失败')
+                        }
+                      }}
+                    >
+                      <a>删除</a>
+                    </Popconfirm>
                   ) : null}
                 </Space>
               )

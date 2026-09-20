@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS kh_document (
     team_id BIGINT,
     author_id BIGINT,
     cover_image VARCHAR,
+    file_url VARCHAR,
+    file_type VARCHAR,
     tags VARCHAR,
     status SMALLINT NOT NULL DEFAULT 0,
     remark VARCHAR,
@@ -24,6 +26,10 @@ CREATE TABLE IF NOT EXISTS kh_document (
     update_by BIGINT,
     deleted BOOLEAN NOT NULL DEFAULT false
 );
+
+-- 存量库升级:补充原始文件字段(幂等)
+ALTER TABLE kh_document ADD COLUMN IF NOT EXISTS file_url VARCHAR;
+ALTER TABLE kh_document ADD COLUMN IF NOT EXISTS file_type VARCHAR;
 
 -- 文档发布审核记录
 -- 一次「提交审核」一行；approve/reject 后 review_result 非空，不再出现在待办列表

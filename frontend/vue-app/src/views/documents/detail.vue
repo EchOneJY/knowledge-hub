@@ -2,6 +2,7 @@
 import { computed, onMounted, shallowRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { useVbenModal } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
@@ -22,6 +23,8 @@ import { FileTypeIcon } from '#/components/file-type-icon';
 import { SectionTitle } from '#/components/section-title';
 import { DOC_STATUS, canWriteDocument, formatTime, visibilityMeta } from '#/utils';
 import { hasAccessByCodes } from '#/utils/access';
+
+import DocumentEditModal from './modules/document-edit-modal.vue';
 
 /** 文档详情：Markdown 渲染 + 作者/管理员生命周期操作。 */
 defineOptions({ name: 'DocumentDetail' });
@@ -92,6 +95,14 @@ async function remove() {
   }
 }
 
+// 编辑弹框:点编辑就地打开,保存后重新拉取详情
+const [DocumentEdit, docEditApi] = useVbenModal({
+  connectedComponent: DocumentEditModal,
+});
+function openEdit() {
+  docEditApi.setData({ id }).open();
+}
+
 onMounted(load);
 </script>
 
@@ -101,58 +112,59 @@ onMounted(load);
     <template v-if="doc">
       <div class="bg-card mb-4 rounded-lg border px-4 py-3">
         <div class="flex flex-wrap items-center gap-2">
+          <!-- 返回列表:固定在最左 -->
+          <ElButton  @click="router.push('/documents')">
+            <IconifyIcon class="mr-1" icon="lucide:arrow-left" />
+            返回列表
+          </ElButton>
           <FileTypeIcon :name="doc.title" :size="26" />
           <SectionTitle
-            class="flex-1"
+            class="min-w-0 flex-1"
             :title="doc.title"
           >
-            <span class="text-muted-foreground ml-1 hidden text-xs lg:inline">
+            <span class="text-muted-foreground ml-1 hidden text-sm lg:inline">
               更新于 {{ formatTime(doc.updatedAt) }}
             </span>
           </SectionTitle>
           <ElTag :type="DOC_STATUS[doc.status]?.type">{{ DOC_STATUS[doc.status]?.label }}</ElTag>
           <ElTag :type="visibilityMeta(doc).type">{{ visibilityMeta(doc).label }}</ElTag>
-          <ElButton size="small" @click="router.push('/documents')">
-            <IconifyIcon class="mr-1" icon="lucide:arrow-left" />
-            返回列表
-          </ElButton>
-          <ElButton
-            v-if="canEdit && writable"
-            size="small"
-            @click="router.push(`/documents/${id}/edit`)"
-          >
-            <IconifyIcon class="mr-1" icon="lucide:pencil" />
-            编辑
-          </ElButton>
-          <ElButton
-            v-if="canEdit && writable && [0, 2].includes(doc.status)"
-            size="small"
-            type="primary"
-            @click="action('publish', '已发布（若开启审核则进入待审）')"
-          >
-            <IconifyIcon class="mr-1" icon="lucide:send" />
-            发布
-          </ElButton>
-          <template v-if="canEdit && writable && doc.status === 1">
-            <ElButton size="small" @click="action('saveDraft', '已下架为草稿')">
-              <IconifyIcon class="mr-1" icon="lucide:undo-2" />
-              下架编辑
+          <!-- 生命周期操作:成组靠右 -->
+          <div class="ml-auto flex items-center gap-1">
+            <ElButton v-if="canEdit && writable"  @click="openEdit()">
+              <IconifyIcon class="mr-1" icon="lucide:pencil" />
+              编辑
             </ElButton>
-            <ElButton size="small" @click="action('archive', '已归档')">
-              <IconifyIcon class="mr-1" icon="lucide:archive" />
-              归档
+            <ElButton
+              v-if="canEdit && writable && [0, 2].includes(doc.status)"
+              type="primary"
+              @click="action('publish', '已发布（若开启审核则进入待审）')"
+            >
+              <IconifyIcon class="mr-1" icon="lucide:send" />
+              发布
             </ElButton>
-          </template>
-          <ElPopconfirm
-            v-if="canDelete && writable"
-            title="确认删除该文档？"
-            @confirm="remove"
-          >
-            <ElButton danger size="small" type="danger">
-              <IconifyIcon class="mr-1" icon="lucide:trash-2" />
-              删除
-            </ElButton>
-          </ElPopconfirm>
+            <template v-if="canEdit && writable && doc.status === 1">
+              <ElButton  @click="action('saveDraft', '已下架为草稿')">
+                <IconifyIcon class="mr-1" icon="lucide:undo-2" />
+                下架
+              </ElButton>
+              <ElButton  @click="action('archive', '已归档')">
+                <IconifyIcon class="mr-1" icon="lucide:archive" />
+                归档
+              </ElButton>
+            </template>
+            <ElPopconfirm
+              v-if="canDelete && writable"
+              title="确认删除该文档？"
+              @confirm="remove"
+            >
+              <template #reference>
+                <ElButton  type="danger">
+                  <IconifyIcon class="mr-1" icon="lucide:trash-2" />
+                  删除
+                </ElButton>
+              </template>
+            </ElPopconfirm>
+          </div>
         </div>
       </div>
 
@@ -169,5 +181,7 @@ onMounted(load);
     >
       <ElButton @click="router.push('/documents')">返回列表</ElButton>
     </ElEmpty>
+
+    <DocumentEdit @success="load()" />
   </div>
 </template>

@@ -36,6 +36,16 @@ export class CreateDocumentDto {
   @IsString()
   coverImage?: string;
 
+  /** 原始文件 URL（上传解析时写入） */
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
+
+  /** 原始文件类型（小写扩展名） */
+  @IsOptional()
+  @IsString()
+  fileType?: string;
+
   /** 标签（逗号分隔） */
   @IsOptional()
   @IsString()

@@ -8,7 +8,9 @@ import {
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { EntityManager } from 'typeorm';
+import { EntityManager, In } from 'typeorm';
+import { TeamEntity } from '../team/entities/team.entity';
+import { UserEntity } from '../user/entities/user.entity';
 import { nextSnowflakeId } from '../common/snowflake-id';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -117,6 +119,8 @@ export class DocumentService {
         teamId: dto.teamId,
         authorId: actor.userId,
         coverImage: dto.coverImage,
+        fileUrl: dto.fileUrl,
+        fileType: dto.fileType,
         tags: dto.tags,
         status,
         remark: dto.remark,
@@ -204,11 +208,51 @@ export class DocumentService {
     const [items, total] = await qb.getManyAndCount();
 
     return {
-      items,
+      items: await this.attachRefs(items),
       total,
       page,
       pageSize,
     };
+  }
+
+  /**
+   * 为文档补充团队名、作者名（列表/详情展示用）
+   * 批量 IN 查询后内存拼装，避免为非关系实体引入 TypeORM 关联映射。
+   * authorName 优先 realName，否则回退 username；查不到给 null。
+   */
+  private async attachRefs<T extends DocumentEntity>(docs: T[]) {
+    if (!docs.length) return docs;
+
+    const teamIds = [
+      ...new Set(docs.map((d) => d.teamId).filter((v): v is string => !!v)),
+    ];
+    const authorIds = [
+      ...new Set(docs.map((d) => d.authorId).filter((v): v is string => !!v)),
+    ];
+
+    const teamMap = new Map<string, string>();
+    if (teamIds.length) {
+      const teams = await this.em.find(TeamEntity, {
+        where: { id: In(teamIds) },
+        select: { id: true, teamName: true },
+      });
+      for (const t of teams) teamMap.set(t.id, t.teamName);
+    }
+
+    const authorMap = new Map<string, string>();
+    if (authorIds.length) {
+      const users = await this.em.find(UserEntity, {
+        where: { id: In(authorIds) },
+        select: { id: true, realName: true, username: true },
+      });
+      for (const u of users) authorMap.set(u.id, u.realName || u.username);
+    }
+
+    return docs.map((d) => ({
+      ...d,
+      teamName: d.teamId ? (teamMap.get(d.teamId) ?? null) : null,
+      authorName: d.authorId ? (authorMap.get(d.authorId) ?? null) : null,
+    }));
   }
 
   /**
@@ -227,8 +271,10 @@ export class DocumentService {
       throw new ForbiddenException('无权查看该文档');
     }
 
+    const [enriched] = await this.attachRefs([doc]);
+
     if (!withContent) {
-      return doc;
+      return enriched;
     }
 
     // 通过 content_id 拉取未删除的正文
@@ -236,7 +282,7 @@ export class DocumentService {
       .findOne({ _id: doc.contentId, deleted: false })
       .lean();
     return {
-      ...doc,
+      ...enriched,
       content: contentDoc?.content ?? '',
     };
   }
@@ -559,6 +605,9 @@ export class DocumentService {
         remark: meta.remark,
         isPublic: meta.isPublic,
         status: DocumentStatus.Draft,
+        // 原文件地址与类型持久化,供列表展示文件类型、支持预览/下载
+        fileUrl: fileUrl ?? undefined,
+        fileType: extension,
       },
       actor,
     );

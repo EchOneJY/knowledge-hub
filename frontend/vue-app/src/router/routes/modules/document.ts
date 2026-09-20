@@ -1,8 +1,8 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 /**
- * 文档中心。权限映射对照 React 端 App.tsx：
- * list → document:list，create → document:create，edit → document:edit。
+ * 文档中心。权限映射对照 React 端 App.tsx：list/详情 → document:list。
+ * 新建/编辑已改为列表页 VbenModal 弹框（入口按 document:create/document:edit 控制）。
  * 管理员短路见 router/access.ts。
  */
 const routes: RouteRecordRaw[] = [
@@ -20,16 +20,6 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
-    name: 'DocumentCreate',
-    path: '/documents/new',
-    component: () => import('#/views/documents/edit.vue'),
-    meta: {
-      authority: ['document:create'],
-      hideInMenu: true,
-      title: '新建文档',
-    },
-  },
-  {
     name: 'DocumentDetail',
     path: '/documents/:id',
     component: () => import('#/views/documents/detail.vue'),
@@ -37,16 +27,6 @@ const routes: RouteRecordRaw[] = [
       authority: ['document:list'],
       hideInMenu: true,
       title: '文档详情',
-    },
-  },
-  {
-    name: 'DocumentEdit',
-    path: '/documents/:id/edit',
-    component: () => import('#/views/documents/edit.vue'),
-    meta: {
-      authority: ['document:edit'],
-      hideInMenu: true,
-      title: '编辑文档',
     },
   },
   {

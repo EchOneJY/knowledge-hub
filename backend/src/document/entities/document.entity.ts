@@ -69,6 +69,14 @@ export class DocumentEntity {
   @Column({ name: 'cover_image', type: 'varchar', nullable: true })
   coverImage?: string | null;
 
+  /** 原始文件 URL（RustFS 公开地址；手写创建的文档为空） */
+  @Column({ name: 'file_url', type: 'varchar', nullable: true })
+  fileUrl?: string | null;
+
+  /** 原始文件类型（小写扩展名，如 pdf/docx；手写创建为空） */
+  @Column({ name: 'file_type', type: 'varchar', nullable: true })
+  fileType?: string | null;
+
   /** 标签（逗号分隔） */
   @Column({ type: 'varchar', nullable: true })
   tags?: string | null;

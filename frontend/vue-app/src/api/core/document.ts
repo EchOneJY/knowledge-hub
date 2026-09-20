@@ -11,7 +11,11 @@ export interface DocumentItem {
   content?: string;
   categoryId?: null | string;
   teamId?: null | string;
+  teamName?: null | string;
   authorId?: null | string;
+  authorName?: null | string;
+  fileUrl?: null | string;
+  fileType?: null | string;
   tags?: null | string;
   status: number;
   isPublic: boolean;
@@ -73,11 +77,17 @@ export const documentApi = {
     requestClient.put<DocumentItem>(`/documents/${id}/archive`),
   saveDraft: (id: string) =>
     requestClient.put<DocumentItem>(`/documents/${id}/save-draft`),
-  /** multipart 上传，字段名 file（后端 FileInterceptor('file')） */
+  /**
+   * multipart 上传，字段名 file（后端 FileInterceptor('file')）。
+   * 必须覆盖客户端默认的 application/json：否则 axios transformRequest 会把
+   * FormData 序列化成 JSON，后端 ValidationPipe 收到 { file } 报 "property file should not exist"；
+   * 设为 multipart/form-data 后浏览器会自动补 boundary。
+   */
   uploadParse: (form: FormData) =>
     requestClient.post<{ documentId: string; status: number; title: string }>(
       '/documents/upload/parse',
       form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     ),
   reviewTasks: (query: Query) =>
     requestClient.get<PageResult<ReviewTask>>(

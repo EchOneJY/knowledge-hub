@@ -31,7 +31,11 @@ export interface DocumentItem {
   content?: string;
   categoryId?: string | null;
   teamId?: string | null;
+  teamName?: string | null;
   authorId?: string | null;
+  authorName?: string | null;
+  fileUrl?: string | null;
+  fileType?: string | null;
   tags?: string | null;
   status: number;
   isPublic: boolean;
