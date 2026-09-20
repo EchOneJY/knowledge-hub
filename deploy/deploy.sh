@@ -130,10 +130,12 @@ ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && IMAGE_TAG='$IMAGE_TAG' docker compose -f 
 echo "==> 等待服务就绪..."
 ready=false
 for i in $(seq 1 90); do
-  status=$(ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && ids=\$(docker compose -f docker-compose.prod.yml ps -q); total=\$(printf '%s' \$ids | wc -w | tr -d ' '); healthy=\$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \$ids 2>/dev/null | grep -c '^healthy$' || true); echo \"\${healthy}/\${total}\"" 2>/dev/null || echo '0/0')
-  if [[ "$status" == "9/9" ]]; then
+  status=$(ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && ids=\$(docker compose -f docker-compose.prod.yml ps -q); total=\$(printf '%s\n' \"\$ids\" | grep -c .); healthy=\$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \$ids 2>/dev/null | grep -c '^healthy$' || true); echo \"\${healthy}/\${total}\"" 2>/dev/null || echo '0/0')
+  healthy_count=${status%/*}
+  total_count=${status#*/}
+  if [[ "$total_count" != 0 && "$healthy_count" == "$total_count" ]]; then
     ready=true
-    echo "==> 所有 9 个容器已健康"
+    echo "==> 所有 $total_count 个容器已健康"
     break
   fi
   echo "    等待中... ($i/90) 状态: $status"
