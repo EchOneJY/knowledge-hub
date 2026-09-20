@@ -88,6 +88,26 @@ export function get<T>(path: string) {
   return request<T>(path)
 }
 
+/** 带鉴权拉取二进制（文件下载/预览）；复用 401 刷新逻辑，返回 Blob */
+export async function getBlob(path: string, retry = true): Promise<Blob> {
+  const headers = new Headers()
+  const token = getAccessToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+
+  if (res.status === 401 && retry) {
+    const ok = await tryRefresh()
+    if (ok) return getBlob(path, false)
+    clearAuth()
+    throw new ApiError(401, '未登录或登录已过期')
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, res.statusText || '文件下载失败')
+  }
+  return res.blob()
+}
+
 export function post<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'POST',

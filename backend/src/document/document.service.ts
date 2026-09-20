@@ -288,6 +288,43 @@ export class DocumentService {
   }
 
   /**
+   * 鉴权后取原文件流，供后端代理下载/预览。
+   * 复用文档读权限（公开/团队/作者/管理员），文件字节由后端从内网 RustFS 拉取，
+   * 不再向浏览器暴露对象存储地址。
+   * @returns 流 + contentType + 供 Content-Disposition 用的下载文件名
+   */
+  async getFileStream(id: string, user: AuthUser) {
+    const doc = await this.em.findOne(DocumentEntity, {
+      where: { id, deleted: false },
+    });
+    if (!doc) {
+      throw new NotFoundException(`Document ${id} not found`);
+    }
+    if (!canReadDocument(doc, accessFromUser(user))) {
+      throw new ForbiddenException('无权下载该文档');
+    }
+
+    const key = this.rustfs.extractKey(doc.fileUrl);
+    if (!key) {
+      throw new NotFoundException('该文档无原始文件');
+    }
+
+    let object: Awaited<ReturnType<RustfsService['getObjectStream']>>;
+    try {
+      object = await this.rustfs.getObjectStream(key);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`取原文件失败：id=${id}, key=${key}, error=${message}`);
+      throw new NotFoundException('原始文件不存在或已被删除');
+    }
+
+    // 下载文件名：标题 + 原扩展名（标题可能含中文，交由 controller 做 RFC5987 编码）
+    const ext = doc.fileType ? `.${doc.fileType}` : extnameFromKey(key);
+    const downloadName = `${sanitizeDownloadName(doc.title)}${ext}`;
+    return { ...object, downloadName };
+  }
+
+  /**
    * 更新文档
    * - 有 content：同步更新 Mongo 正文，并递增 version
    * - 仅改 summary：同步更新 Mongo contentSummary
@@ -743,4 +780,16 @@ export class DocumentService {
 
     return cjk + latin;
   }
+}
+
+/** 从对象 key 取扩展名（含点），无则返回空串 */
+function extnameFromKey(key: string): string {
+  const base = key.split('/').pop() ?? '';
+  const idx = base.lastIndexOf('.');
+  return idx > 0 ? base.slice(idx) : '';
+}
+
+/** 清洗下载文件名：去路径分隔与控制字符，避免 header 注入 */
+function sanitizeDownloadName(title: string): string {
+  return (title || 'document').replace(/[\\/\r\n"]+/g, '_').slice(0, 128);
 }

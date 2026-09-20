@@ -44,6 +44,34 @@ export default function DocumentsPage() {
     void load(1)
   }, [])
 
+  // 预览:取 Blob 生成对象 URL 在新标签打开;下载:同样取 Blob 触发 a[download]
+  async function previewFile(row: DocumentItem) {
+    try {
+      const blob = await documentApi.fetchFile(row.id, 'inline')
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      // 释放:新标签已持有引用,延迟回收避免打开前被撤销
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (error) {
+      message.error(error instanceof ApiError ? error.message : '预览失败')
+    }
+  }
+
+  async function downloadFile(row: DocumentItem) {
+    try {
+      const blob = await documentApi.fetchFile(row.id, 'attachment')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ext = row.fileType ? `.${row.fileType}` : ''
+      a.download = `${row.title || 'document'}${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      message.error(error instanceof ApiError ? error.message : '下载失败')
+    }
+  }
+
   return (
     <div className="kh-page">
       <p className="kh-access-hint">
@@ -171,19 +199,9 @@ export default function DocumentsPage() {
                 <Space>
                   {row.fileUrl ? (
                     <>
-                      {/* 原文件在 RustFS 公开地址:预览新标签打开,下载走 a[download] 兜底 */}
-                      <a onClick={() => window.open(row.fileUrl!, '_blank')}>预览</a>
-                      <a
-                        onClick={() => {
-                          const a = document.createElement('a')
-                          a.href = row.fileUrl!
-                          a.download = ''
-                          a.target = '_blank'
-                          a.click()
-                        }}
-                      >
-                        下载
-                      </a>
+                      {/* 原文件走后端鉴权代理(GET /documents/:id/file),取 Blob 后用对象 URL 预览/下载 */}
+                      <a onClick={() => void previewFile(row)}>预览</a>
+                      <a onClick={() => void downloadFile(row)}>下载</a>
                     </>
                   ) : null}
                   {writable ? (

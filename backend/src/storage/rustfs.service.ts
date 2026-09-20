@@ -1,9 +1,11 @@
 import {
   CreateBucketCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import type { Readable } from 'stream';
 import {
   Injectable,
   Logger,
@@ -56,6 +58,8 @@ export class RustfsService implements OnModuleInit {
     );
     const region = this.config.get<string>('RUSTFS_REGION', 'us-east-1');
     this.bucket = this.config.get<string>('RUSTFS_BUCKET', 'knowledge-hub');
+    // 仅用于上传时拼接持久化的 fileUrl 记录；下载/预览走后端鉴权代理
+    // (GET /documents/:id/file)，不依赖此地址对浏览器可达。
     this.publicBaseUrl = (
       this.config.get<string>('RUSTFS_PUBLIC_URL') || endpoint
     ).replace(/\/$/, '');
@@ -119,6 +123,52 @@ export class RustfsService implements OnModuleInit {
       `RustFS 上传成功: key=${key}, size=${body.length}, url=${url}`,
     );
     return url;
+  }
+
+  /**
+   * 从存量 fileUrl 或裸 key 中提取对象 key。
+   * 兼容三种历史形态：
+   * - 完整公开 URL：http://rustfs:9000/knowledge-hub/documents/xxx.pdf
+   * - 带 bucket 的相对路径：knowledge-hub/documents/xxx.pdf
+   * - 裸 key：documents/xxx.pdf
+   * 返回 null 表示无法识别（非本 bucket 或空值）。
+   */
+  extractKey(fileUrlOrKey: string | null | undefined): string | null {
+    if (!fileUrlOrKey) return null;
+    let path = fileUrlOrKey.trim();
+    // 剥离协议 + host，仅保留 path 部分
+    const schemeIdx = path.indexOf('://');
+    if (schemeIdx >= 0) {
+      const afterScheme = path.slice(schemeIdx + 3);
+      const slashIdx = afterScheme.indexOf('/');
+      path = slashIdx >= 0 ? afterScheme.slice(slashIdx + 1) : '';
+    }
+    path = path.replace(/^\/+/, '');
+    // 去掉 bucket 前缀（path-style）
+    const bucketPrefix = `${this.bucket}/`;
+    if (path.startsWith(bucketPrefix)) {
+      path = path.slice(bucketPrefix.length);
+    }
+    return path || null;
+  }
+
+  /** 按 key 取对象流，供后端鉴权代理下载/预览；对象不存在时由调用方处理异常 */
+  async getObjectStream(key: string): Promise<{
+    stream: Readable;
+    contentType: string;
+    contentLength?: number;
+  }> {
+    if (!this.isEnabled() || !this.client) {
+      throw new ServiceUnavailableException('RustFS 未启用或未配置');
+    }
+    const res = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    return {
+      stream: res.Body as Readable,
+      contentType: res.ContentType || 'application/octet-stream',
+      contentLength: res.ContentLength,
+    };
   }
 
   private async ensureBucket(): Promise<void> {

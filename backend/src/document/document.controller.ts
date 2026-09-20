@@ -8,11 +8,13 @@ import {
   Param,
   Delete,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { DocumentService } from './document.service';
 import { DocumentReviewService } from './document-review.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -165,6 +167,37 @@ export class DocumentController {
   @RequirePermission(PermissionCode.documentList)
   findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.documentService.findOne(id, true, user);
+  }
+
+  /**
+   * 鉴权代理下载/预览原文件。
+   * 文件字节由后端从内网 RustFS 拉取后转发，不向浏览器暴露对象存储地址。
+   * @param disposition inline（预览，默认）或 attachment（下载）
+   */
+  @Get(':id/file')
+  @RequirePermission(PermissionCode.documentList)
+  async downloadFile(
+    @Param('id') id: string,
+    @Query('disposition') disposition: string | undefined,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ) {
+    const { stream, contentType, contentLength, downloadName } =
+      await this.documentService.getFileStream(id, user);
+
+    const type = disposition === 'attachment' ? 'attachment' : 'inline';
+    // RFC 5987：filename* 用 UTF-8 编码，兼容中文标题；filename 保留 ASCII 兜底
+    const asciiName = downloadName.replace(/[^\x20-\x7e]+/g, '_');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `${type}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+    );
+    if (contentLength != null) {
+      res.setHeader('Content-Length', String(contentLength));
+    }
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
   }
 
   /** 更新文档 */

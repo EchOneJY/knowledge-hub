@@ -62,6 +62,12 @@ export const documentApi = {
   list: (query: Query) =>
     requestClient.get<PageResult<DocumentItem>>(`/documents${toQueryString(query)}`),
   get: (id: string) => requestClient.get<DocumentItem>(`/documents/${id}`),
+  // 鉴权代理拉取原文件 Blob：inline 预览 / attachment 下载（对照 React 端 documentApi.fetchFile）
+  fetchFile: (id: string, disposition: 'attachment' | 'inline') =>
+    requestClient.get<Blob>(`/documents/${id}/file`, {
+      params: { disposition },
+      responseType: 'blob',
+    }),
   create: (body: Record<string, unknown>) =>
     requestClient.post<DocumentItem>('/documents', body),
   update: (id: string, body: Record<string, unknown>) =>

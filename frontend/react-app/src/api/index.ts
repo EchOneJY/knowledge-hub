@@ -1,4 +1,4 @@
-import { del, get, patch, post, put, request } from "./client";
+import { del, get, getBlob, patch, post, put, request } from "./client";
 import type {
   ChatMessage,
   ChatResult,
@@ -38,6 +38,9 @@ export const documentApi = {
     return get<PageResult<DocumentItem>>(`/documents${qs ? `?${qs}` : ""}`);
   },
   get: (id: string) => get<DocumentItem>(`/documents/${id}`),
+  // 鉴权代理拉取原文件 Blob：inline 预览 / attachment 下载
+  fetchFile: (id: string, disposition: "inline" | "attachment") =>
+    getBlob(`/documents/${id}/file?disposition=${disposition}`),
   create: (body: Record<string, unknown>) =>
     post<DocumentItem>("/documents", body),
   update: (id: string, body: Record<string, unknown>) =>
