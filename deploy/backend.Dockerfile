@@ -16,7 +16,7 @@ RUN pnpm install --filter knowledge-hub-backend... --frozen-lockfile --ignore-sc
 COPY backend backend
 
 RUN pnpm --filter knowledge-hub-backend build \
-  && pnpm deploy --filter knowledge-hub-backend --prod /tmp/backend-deploy
+  && pnpm deploy --filter knowledge-hub-backend --prod --config.inject-workspace-packages=true /tmp/backend-deploy
 
 FROM node:22-alpine AS production
 
