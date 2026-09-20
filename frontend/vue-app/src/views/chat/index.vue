@@ -153,15 +153,11 @@ async function createSession() {
     ElMessage.info('当前已是新对话');
     return;
   }
-  try {
-    const created = await aiApi.createSession();
-    loadedSessionId.value = created.id;
-    messages.value = [];
-    await router.push(`/chat?session=${created.id}`);
-    await loadSessions();
-  } catch (err) {
-    ElMessage.error(err instanceof ApiError ? err.message : '创建失败');
-  }
+  // 不预建后端会话:仅回到空的新对话态。待用户发出首条消息时后端再创建会话,
+  // 并经 onData(data-session) 回填 id、onFinish 刷新列表,避免空会话进入历史列表。
+  loadedSessionId.value = undefined;
+  messages.value = [];
+  await router.push('/chat');
 }
 
 async function renameSession(id: string, title: string) {
