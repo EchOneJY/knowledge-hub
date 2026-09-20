@@ -35,9 +35,10 @@ const statusOptions = Object.entries(DOC_STATUS).map(([value, meta]) => ({
   value: Number(value),
 }));
 
-const [SearchForm] = useVbenForm({
+const [SearchForm, searchFormApi] = useVbenForm({
   actionWrapperClass: 'gap-1',
   commonConfig: { hideLabel: true },
+  handleReset: onReset,
   handleSubmit: onSubmit,
   resetButtonOptions: { content: '清空' },
   schema: [
@@ -76,6 +77,17 @@ async function onSubmit(values: Record<string, unknown>) {
     status: values.status as number | undefined,
   };
   await runSearch(1);
+}
+
+// 清空:重置表单字段的同时清掉已查询结果,回到搜索前占位状态
+async function onReset() {
+  await searchFormApi.resetForm();
+  query.value = { keyword: '' };
+  items.value = [];
+  total.value = 0;
+  page.value = 1;
+  elapsed.value = null;
+  searched.value = false;
 }
 
 async function runSearch(nextPage: number) {
@@ -118,7 +130,7 @@ function docTags(tags?: null | string) {
   <div class="flex h-[var(--vben-content-height)] flex-col p-4">
     <div class="bg-card flex min-h-0 flex-1 flex-col rounded-lg border">
       <!-- 顶部：单行搜索，固定不滚动 -->
-      <div class="p-4 pb-2 border-b">
+      <div class="py-4 mx-4 pb-2 border-b">
         <SearchForm />
 
         <div

@@ -122,12 +122,12 @@ onMounted(load);
             class="min-w-0 flex-1"
             :title="doc.title"
           >
-            <span class="text-muted-foreground ml-1 hidden text-sm lg:inline">
+            <span class="text-muted-foreground ml-1 hidden text-[13px] lg:inline">
               更新于 {{ formatTime(doc.updatedAt) }}
             </span>
+            <ElTag :type="DOC_STATUS[doc.status]?.type">{{ DOC_STATUS[doc.status]?.label }}</ElTag>
+            <ElTag :type="visibilityMeta(doc).type">{{ visibilityMeta(doc).label }}</ElTag>
           </SectionTitle>
-          <ElTag :type="DOC_STATUS[doc.status]?.type">{{ DOC_STATUS[doc.status]?.label }}</ElTag>
-          <ElTag :type="visibilityMeta(doc).type">{{ visibilityMeta(doc).label }}</ElTag>
           <!-- 生命周期操作:成组靠右 -->
           <div class="ml-auto flex items-center gap-1">
             <ElButton v-if="canEdit && writable"  @click="openEdit()">
