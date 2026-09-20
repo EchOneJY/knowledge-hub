@@ -5,7 +5,10 @@
 #
 # 用法:
 #   cp deploy/.env.example deploy/.env && 编辑配置
-#   ./deploy/deploy.sh
+#   ./deploy/deploy.sh                       # 全量部署(ES + 后端 + 前端 + 依赖)
+#   ./deploy/deploy.sh --only frontend       # 仅重建前端(不触碰后端/数据库)
+#   ./deploy/deploy.sh --only backend        # 仅重建后端
+#   ./deploy/deploy.sh --only frontend,backend  # 仅重建前后端
 #
 set -euo pipefail
 
@@ -40,6 +43,43 @@ DEPLOY_DIR=${DEPLOY_DIR:-$(env_get DEPLOY_DIR /opt/knowledge-hub)}
 IMAGE_TAG=${IMAGE_TAG:-$(date +%Y%m%d-%H%M%S)}
 SSH_TARGET="$DEPLOY_USER@$DEPLOY_HOST"
 
+# --- 解析命令行参数 ---
+# 默认全量部署;--only 仅部署指定应用,复用同套构建/传输/启动流程,不重建数据库等基础设施
+ONLY_APPS=()
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --only)
+      [[ $# -ge 2 ]] || { echo "错误: --only 需要参数,如 --only frontend" >&2; exit 1; }
+      IFS=',' read -r -a ONLY_APPS <<< "$2"; shift 2 ;;
+    --only=*)
+      IFS=',' read -r -a ONLY_APPS <<< "${1#*=}"; shift ;;
+    -h | --help)
+      echo "用法: $0 [--only frontend|backend|frontend,backend]"; exit 0 ;;
+    *)
+      echo "错误: 未知参数 $1(可用: --only frontend|backend)" >&2; exit 1 ;;
+  esac
+done
+
+# ONLY_APPS 非空即为部分部署,并校验取值合法
+PARTIAL=false
+if [[ ${#ONLY_APPS[@]} -gt 0 ]]; then
+  PARTIAL=true
+  for app in "${ONLY_APPS[@]}"; do
+    case $app in
+      frontend | backend) ;;
+      *) echo "错误: --only 仅支持 frontend / backend,收到: $app" >&2; exit 1 ;;
+    esac
+  done
+fi
+
+# want <app>: 全量部署时恒真;--only 模式下仅当 app 在待部署列表中才为真
+want() {
+  $PARTIAL || return 0
+  local a
+  for a in "${ONLY_APPS[@]}"; do [[ $a == "$1" ]] && return 0; done
+  return 1
+}
+
 if [[ -z $DEPLOY_HOST ]]; then
   echo "错误: deploy/.env 里没有 DEPLOY_HOST" >&2
   exit 1
@@ -60,27 +100,33 @@ esac
 
 echo "==> 目标 $SSH_TARGET:$DEPLOY_DIR  架构 $PLATFORM  标签 $IMAGE_TAG"
 
-# --- 构建 ES 镜像 ---
-echo "==> 构建 Elasticsearch 镜像 (knowledge-hub-es:latest)"
-docker build --platform "$PLATFORM" --provenance=false --sbom=false \
-  -f "$ES_DOCKERFILE" -t knowledge-hub-es:latest "$REPO_ROOT/deploy"
+# --- 构建 ES 镜像（仅全量部署，属基础设施，--only 时跳过） ---
+if ! $PARTIAL; then
+  echo "==> 构建 Elasticsearch 镜像 (knowledge-hub-es:latest)"
+  docker build --platform "$PLATFORM" --provenance=false --sbom=false \
+    -f "$ES_DOCKERFILE" -t knowledge-hub-es:latest "$REPO_ROOT/deploy"
+fi
 
 # --- 构建后端镜像 ---
-echo "==> 构建后端镜像 (knowledge-hub-backend:$IMAGE_TAG)"
-docker build --platform "$PLATFORM" --provenance=false --sbom=false \
-  -f "$BACKEND_DOCKERFILE" \
-  -t "knowledge-hub-backend:$IMAGE_TAG" -t "knowledge-hub-backend:latest" \
-  "$REPO_ROOT"
+if want backend; then
+  echo "==> 构建后端镜像 (knowledge-hub-backend:$IMAGE_TAG)"
+  docker build --platform "$PLATFORM" --provenance=false --sbom=false \
+    -f "$BACKEND_DOCKERFILE" \
+    -t "knowledge-hub-backend:$IMAGE_TAG" -t "knowledge-hub-backend:latest" \
+    "$REPO_ROOT"
+fi
 
 # --- 构建前端镜像 ---
-# FRONTEND_APP 选择构建 react-app / vue-app（可在 deploy/.env 配置，默认 react-app）
-FRONTEND_APP=${FRONTEND_APP:-$(env_get FRONTEND_APP react-app)}
-echo "==> 构建前端镜像 (knowledge-hub-frontend:$IMAGE_TAG  app=$FRONTEND_APP)"
-docker build --platform "$PLATFORM" --provenance=false --sbom=false \
-  -f "$FRONTEND_DOCKERFILE" \
-  --build-arg FRONTEND_APP="$FRONTEND_APP" \
-  -t "knowledge-hub-frontend:$IMAGE_TAG" -t "knowledge-hub-frontend:latest" \
-  "$REPO_ROOT"
+if want frontend; then
+  # FRONTEND_APP 选择构建 react-app / vue-app（可在 deploy/.env 配置，默认 react-app）
+  FRONTEND_APP=${FRONTEND_APP:-$(env_get FRONTEND_APP react-app)}
+  echo "==> 构建前端镜像 (knowledge-hub-frontend:$IMAGE_TAG  app=$FRONTEND_APP)"
+  docker build --platform "$PLATFORM" --provenance=false --sbom=false \
+    -f "$FRONTEND_DOCKERFILE" \
+    --build-arg FRONTEND_APP="$FRONTEND_APP" \
+    -t "knowledge-hub-frontend:$IMAGE_TAG" -t "knowledge-hub-frontend:latest" \
+    "$REPO_ROOT"
+fi
 
 # --- 准备服务器目录 ---
 echo "==> 准备服务器目录 $DEPLOY_DIR"
@@ -97,13 +143,14 @@ scp "$REPO_ROOT/backend/init-scripts/mongodb/init.js" \
 
 # --- 传输镜像 ---
 echo "==> 传输镜像到服务器（首次约 2-3 GB，耐心等待）"
-IMAGES=(
-  "knowledge-hub-es:latest"
-  "knowledge-hub-backend:$IMAGE_TAG"
-  "knowledge-hub-backend:latest"
-  "knowledge-hub-frontend:$IMAGE_TAG"
-  "knowledge-hub-frontend:latest"
-)
+IMAGES=()
+$PARTIAL || IMAGES+=("knowledge-hub-es:latest")
+if want backend; then
+  IMAGES+=("knowledge-hub-backend:$IMAGE_TAG" "knowledge-hub-backend:latest")
+fi
+if want frontend; then
+  IMAGES+=("knowledge-hub-frontend:$IMAGE_TAG" "knowledge-hub-frontend:latest")
+fi
 
 # 检查服务器上是否已有这些镜像，跳过已有的基础镜像
 existing=$(ssh "$SSH_TARGET" 'docker images --format "{{.Repository}}:{{.Tag}}"' 2>/dev/null || echo "")
@@ -123,14 +170,23 @@ if [[ ${#save_list[@]} -gt 0 ]]; then
 fi
 
 # --- 启动服务 ---
-echo "==> 启动容器"
-ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && IMAGE_TAG='$IMAGE_TAG' docker compose -f docker-compose.prod.yml up -d"
+if $PARTIAL; then
+  # 仅重建指定应用容器：--no-deps 不触碰数据库/ES 等依赖，--force-recreate 确保换用新镜像
+  echo "==> 重建容器: ${ONLY_APPS[*]}（--no-deps，不触碰数据库等依赖）"
+  ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && IMAGE_TAG='$IMAGE_TAG' docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate ${ONLY_APPS[*]}"
+else
+  echo "==> 启动容器"
+  ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && IMAGE_TAG='$IMAGE_TAG' docker compose -f docker-compose.prod.yml up -d"
+fi
 
 # --- 等待健康检查 ---
+# 部分部署仅检查目标服务；全量为空表示检查全部容器
+HEALTH_SERVICES=""
+$PARTIAL && HEALTH_SERVICES="${ONLY_APPS[*]}"
 echo "==> 等待服务就绪..."
 ready=false
 for i in $(seq 1 90); do
-  status=$(ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && ids=\$(docker compose -f docker-compose.prod.yml ps -q); total=\$(printf '%s\n' \"\$ids\" | grep -c .); healthy=\$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \$ids 2>/dev/null | grep -c '^healthy$' || true); echo \"\${healthy}/\${total}\"" 2>/dev/null || echo '0/0')
+  status=$(ssh "$SSH_TARGET" "cd '$DEPLOY_DIR' && ids=\$(docker compose -f docker-compose.prod.yml ps -q $HEALTH_SERVICES); total=\$(printf '%s\n' \"\$ids\" | grep -c .); healthy=\$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \$ids 2>/dev/null | grep -c '^healthy$' || true); echo \"\${healthy}/\${total}\"" 2>/dev/null || echo '0/0')
   healthy_count=${status%/*}
   total_count=${status#*/}
   if [[ "$total_count" != 0 && "$healthy_count" == "$total_count" ]]; then
@@ -152,7 +208,11 @@ fi
 frontend_port=$(env_get FRONTEND_PORT 5175)
 api_port=$(env_get API_PORT 3001)
 echo ""
-echo "==> 部署完成"
+if $PARTIAL; then
+  echo "==> 部分部署完成（${ONLY_APPS[*]}）"
+else
+  echo "==> 部署完成"
+fi
 echo "    前端: http://$DEPLOY_HOST:$frontend_port"
 echo "    API (通过 NGINX): http://$DEPLOY_HOST:$frontend_port/api/"
 echo "    API (直连): http://$DEPLOY_HOST:$api_port/"
@@ -164,4 +224,5 @@ echo "==> 日志查看:"
 echo "    ssh $SSH_TARGET 'cd $DEPLOY_DIR && docker compose -f docker-compose.prod.yml logs -f backend'"
 echo ""
 echo "==> 回滚:"
-echo "    ssh $SSH_TARGET 'cd $DEPLOY_DIR && IMAGE_TAG=<旧标签> docker compose -f docker-compose.prod.yml up -d'"
+echo "    全量: ssh $SSH_TARGET 'cd $DEPLOY_DIR && IMAGE_TAG=<旧标签> docker compose -f docker-compose.prod.yml up -d'"
+echo "    单服务: ssh $SSH_TARGET 'cd $DEPLOY_DIR && IMAGE_TAG=<旧标签> docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate frontend'  # 或 backend"
