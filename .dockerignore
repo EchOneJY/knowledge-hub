@@ -5,6 +5,10 @@
 **/coverage
 **/.env
 **/.env.*
+# vue-app 生产构建需读磁盘上的 .env 文件生成运行时 _app.config.js（vben loadEnv 不读 process.env）；
+# 这些是非敏感应用配置（API 路径/标题/路由模式），放行进构建上下文。backend/.env、deploy/.env 仍被排除。
+!frontend/vue-app/.env
+!frontend/vue-app/.env.production
 backend/volumes
 backend/uploads
 deploy/.env
