@@ -13,7 +13,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['document:list'],
       icon: 'lucide:file-text',
-      keepAlive: true,
       menuGroup: '文档管理',
       order: -20,
       title: '文档管理',
@@ -36,7 +35,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       authority: ['document:review'],
       icon: 'lucide:bell',
-      keepAlive: true,
       menuGroup: '文档管理',
       order: -19,
       title: '审核工作台',
